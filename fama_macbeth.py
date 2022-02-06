@@ -12,6 +12,8 @@ Empirical Asset Pricing: The Cross Section of Stock Returns. Bali, Engle, Murray
 from numpy.core.defchararray import add
 from statsmodels.tools.tools import add_constant
 
+from portfolio_analysis import Bivariate
+
 
 class Fama_macbeth_regress():
     '''
@@ -192,4 +194,41 @@ class Fama_macbeth_regress():
         print('\n')
         print(table)
         
+class Factor_mimicking_portfolio():
+    '''
+    Factor_mimicking_portfolio:
+    Following Fama-French(1993), generate factor mimicking portfolio and calculate factor risk premium.
+    '''
+    from portfolio_analysis import Bivariate
+
+    def __init__(self, sample, perc_row=[0, 50, 100], perc_col=[0, 30, 70, 100], weight=True):
+        self.sample = sample
+        self.perc_row = perc_row
+        self.perc_col = perc_col
+        self.weight = weight
+
+    def portfolio_return_time(self):
+        '''
+        Construct portfolio and calculate the average return and difference matrix 
+        '''
+        bi = Bivariate(self.sample, perc_row=self.perc_row, perc_col=self.perc_col, weight=self.weight)
+        diff = bi.difference(bi.average_by_time())
+        
+        return diff
     
+    def portfolio_return(self):
+        '''
+        Construct factor risk premium
+        '''
+        import numpy as np
+        import pandas as pd
+        
+        diff = self.portfolio_return_time()
+        r, c, n = np.shape(diff)
+        
+        time = np.sort(np.unique(self.sample[:, 3]))
+        return_row = pd.Series(np.mean(diff[-1, :c, :], axis=0), index=pd.to_datetime(time))
+        return_col = pd.Series(np.mean(diff[:r, -1, :], axis=0), index=pd.to_datetime(time))
+        
+        return return_row, return_col
+
