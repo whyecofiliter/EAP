@@ -7,7 +7,7 @@ from numpy.core.defchararray import add
 
 import prettytable
 from statsmodels.genmod.generalized_estimating_equations import ParameterConstraint
-from time_series_regress import TS_regress
+from .time_series_regress import TS_regress
 
 
 class CS_regress() :

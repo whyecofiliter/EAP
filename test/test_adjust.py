@@ -54,18 +54,19 @@ def test_newey_west() :
     from statsmodels.stats.sandwich_covariance import cov_hac
 
     X = np.random.normal(loc=0.0, scale=1.0, size=(10000,10))
-    b = np.random.uniform(low=0.1, high=1.1, size=(10,1))
+    b = np.random.normal(loc=0.0, scale=1.0, size=(10,1))
     e = np.random.normal(loc=0.0, scale=1.0, size=(10000,1))
-    y = X.dot(b) + e + 1.0
+    y = X.dot(b) + e
 
     re = newey_west(y, X, constant=False)
     np.set_printoptions(formatter={'float':'{:0.2f}'.format})
     print(re)
 #    X = add_constant(X)
     r, c = np.shape(X) 
-    print('\n', 1/r*X.T.dot(X).dot(re).dot(X.T.dot(X)))
     result = ols(y, X, constant=False)
     print('\n', cov_hac(result))
+
+    print('\n', 1/r*X.T.dot(X).dot(re).dot(X.T.dot(X)))
     print('\n', 1/r*X.T.dot(X).dot(cov_hac(result)).dot(X.T.dot(X)))
 
 test_newey_west()

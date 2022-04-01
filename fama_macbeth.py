@@ -12,7 +12,7 @@ Empirical Asset Pricing: The Cross Section of Stock Returns. Bali, Engle, Murray
 from numpy.core.defchararray import add
 from statsmodels.tools.tools import add_constant
 
-from portfolio_analysis import Bivariate
+from .portfolio_analysis import Bivariate
 
 
 class Fama_macbeth_regress():
@@ -28,7 +28,15 @@ class Fama_macbeth_regress():
         the second to the last-1 columns is independent variable/ factor loadings
         the last coolumn is time label
         '''
-        self.sample = sample
+        import numpy as np
+
+        if type(sample).__name__ == 'DataFrame':
+            self.sample = np.array(sample)
+            self._input_type = 'DataFrame'
+            self._columns = list(sample.columns)
+        elif type(sample).__name__ == 'ndarray':
+            self.sample = sample
+            self._input_type = 'ndarray'
         # self.time_series_average()
     
     def divide_by_time(self, sample):
@@ -48,7 +56,7 @@ class Fama_macbeth_regress():
         # return grouped sample 返回被分类的样本组
         return groups_by_time
             
-    def cross_sectional_regress(self,add_constant=True):
+    def cross_sectional_regress(self, add_constant=True, normalization=True):
         '''
         The #1 step of Fama-Macbeth Regression Fama-Macbeth 回归第一步
         take the cross_sectional regress for each period 在每个时间段分别进行截面数据回归
@@ -74,11 +82,11 @@ class Fama_macbeth_regress():
         # initiate the variable 初始化变量
         
         if add_constant == True :
-            params = np.zeros((len(groups),c-1))
-            tvalue = np.zeros((len(groups),c-1))
+            params = np.zeros((len(groups), c-1))
+            tvalue = np.zeros((len(groups), c-1))
         elif add_constant == False :
-            params = np.zeros((len(groups),c-2))
-            tvalue = np.zeros((len(groups),c-2))
+            params = np.zeros((len(groups), c-2))
+            tvalue = np.zeros((len(groups), c-2))
         rsquare = list()
         adjrsq = list()
         n = list()
@@ -86,14 +94,28 @@ class Fama_macbeth_regress():
         # cross section regression by groups 分组截面回归
         for i in range(len(groups)) :
             # group size 组的大小
-            r,c = np.shape(groups[i])
+            r, c = np.shape(groups[i])
             temp_group = groups[i]
             # regression 回归
             if add_constant == True :
-                result = sm.OLS(temp_group[:,0], sm.add_constant(temp_group[:,1:-1])).fit()    
+                if normalization == True:
+                    temp_endog = (temp_group[:, 0]-np.mean(temp_group[:, 0]))/np.std(temp_group[:, 0])
+                    temp_exog = (temp_group[:, 1:-1]-np.mean(temp_group[:, 1:-1], axis=0))/(np.var(temp_group[:, 1:-1], axis=0)**0.5)
+                    result = sm.OLS(temp_endog.astype(float), sm.add_constant(temp_exog.astype(float))).fit()
+                
+                elif normalization == False:
+                    result = sm.OLS(temp_group[:, 0].astype(float), sm.add_constant(temp_group[:, 1:-1].astype(float))).fit()    
+                
                 self.constant = True
             elif add_constant == False :
-                result = sm.OLS(temp_group[:,0], temp_group[:,1:-1]).fit()
+                if normalization == True:
+                    temp_endog = (temp_group[:, 0]-np.mean(temp_group[:, 0]))/np.std(temp_group[:, 0])
+                    temp_exog = (temp_group[:, 1:-1]-np.mean(temp_group[:, 1:-1], axis=0))/(np.var(temp_group[:, 1:-1], axis=0)**0.5)
+                    result = sm.OLS(temp_endog.astype(float), temp_exog.astype(float)).fit()
+  
+                elif normalization == False:
+                    result = sm.OLS(temp_group[:, 0].astype(float), temp_group[:, 1:-1].astype(float)).fit()
+                
                 self.constant = False
             # params of each group
             params[i,:] = result.params
@@ -180,17 +202,28 @@ class Fama_macbeth_regress():
             charactername = list()
             for i in range(c-2):
                 charactername.extend(str(i+1))
-        if self.constant == True :
-            table.field_names = ['Intercept','Intercept Tvalue']+['Param','Param Tvalue']+['Average R','Average adj R','Average n']
-            table.add_row([np.around(self.coefficient_average[0], decimals=5), np.around(self.tvalue[0], decimals=3), self.coefficient_average[1:],\
+        if self.constant == True and self._input_type == 'ndarray' :
+            table.field_names = ['Intercept','Intercept Tvalue'] + ['Param','Param Tvalue'] + ['Average R','Average adj R','Average n']
+            table.add_row([np.around(self.coefficient_average[0], decimals=4), np.around(self.tvalue[0], decimals=3), self.coefficient_average[1:],\
                            self.tvalue[1:], np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
                            self.n_average])
-        elif self.constant == False :
+        elif self.constant == True and self._input_type == 'DataFrame' :
+            table.field_names = ['Intercept'] + self._columns[1:-1] + ['Average R','Average adj R','Average n']
+            table.add_row(np.around([self.coefficient_average[0]] + list(self.coefficient_average[1:]) + [np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
+                           np.around(self.n_average, decimals=2)], decimals=4))
+            table.add_row([np.around(self.tvalue[0], decimals=3)] + list(np.around(self.tvalue[1:], decimals=3)) + ['-', '-', '-'])
+
+        elif self.constant == False and self._input_type == 'ndarray' :
             table.field_names = ['Param','Param Tvalue']+['Average R','Average adj R','Average n']
             table.add_row([self.coefficient_average, self.tvalue, np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
                            self.n_average])
+        elif self.constant == False and self._input_type == 'DataFrame' :
+            table.field_names = self._columns[1:-1] + ['Average R','Average adj R','Average n']
+            table.add_row(np.around(list(self.coefficient_average), decimals=4) + [np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
+                           np.around(self.n_average, decimals=2)])
+            table.add_row(list(np.around(self.tvalue, decimals=3)) + ['-', '-', '-'])
 
-        np.set_printoptions(formatter={'float':'{:0.3f}'.format})
+        
         print('\n')
         print(table)
         
@@ -199,18 +232,25 @@ class Factor_mimicking_portfolio():
     Factor_mimicking_portfolio:
     Following Fama-French(1993), generate factor mimicking portfolio and calculate factor risk premium.
     '''
-    from portfolio_analysis import Bivariate
 
     def __init__(self, sample, perc_row=[0, 50, 100], perc_col=[0, 30, 70, 100], weight=True):
+        import numpy as np
+        
         self.sample = sample
         self.perc_row = perc_row
         self.perc_col = perc_col
         self.weight = weight
+        if type(sample).__name__ == 'DataFrame':
+            self._time = np.sort(np.unique(sample.iloc[:, 3])) 
+        elif type(sample).__name__ == 'ndarray':
+            self._time = np.sort(np.unique(sample[:, 3]))
 
     def portfolio_return_time(self):
         '''
         Construct portfolio and calculate the average return and difference matrix 
         '''
+        from .portfolio_analysis import Bivariate
+        
         bi = Bivariate(self.sample, perc_row=self.perc_row, perc_col=self.perc_col, weight=self.weight)
         diff = bi.difference(bi.average_by_time())
         
@@ -226,9 +266,57 @@ class Factor_mimicking_portfolio():
         diff = self.portfolio_return_time()
         r, c, n = np.shape(diff)
         
-        time = np.sort(np.unique(self.sample[:, 3]))
+        time = self._time
+
         return_row = pd.Series(np.mean(diff[-1, :c, :], axis=0), index=pd.to_datetime(time))
         return_col = pd.Series(np.mean(diff[:r, -1, :], axis=0), index=pd.to_datetime(time))
         
         return return_row, return_col
+    
+    def portfolio_return_horizon(self, period, ret=False):
+        '''
+        Construct horizon pricing factor
+        input :
+            period (int): period
+        '''
+        import numpy as np
+        import pandas as pd
+
+        diff = self.portfolio_return_time()
+        r, c, n =np.shape(diff)
+
+        time = self._time
+
+        return_col_up = pd.Series(np.mean(diff[:-1, 0, :], axis=0), index=pd.to_datetime(time))
+        return_col_down = pd.Series(np.mean(diff[:-1, -2, :], axis=0), index=pd.to_datetime(time))
+        return_row_up = pd.Series(np.mean(diff[0, :c, :], axis=0), index=pd.to_datetime(time))
+        return_row_down = pd.Series(np.mean(diff[-2, :c, :], axis=0), index=pd.to_datetime(time))
+
+        return_row_up_plus = np.log(return_row_up + 1)
+        return_row_down_plus = np.log(return_row_down + 1)
+        return_col_up_plus = np.log(return_col_up + 1)
+        return_col_down_plus = np.log(return_col_down + 1)
+        
+        if period > 1:
+            return_row_up_multi = return_row_up_plus.rolling(window=period).sum()
+            return_row_down_multi = return_row_down_plus.rolling(window=period).sum()
+            return_col_up_multi = return_col_up_plus.rolling(window=period).sum()
+            return_col_down_multi = return_col_down_plus.rolling(window=period).sum()
+            
+            if ret == False:
+                return_row_multi = np.exp(return_row_down_multi) - np.exp(return_row_up_multi)
+                return_col_multi = np.exp(return_col_down_multi) - np.exp(return_col_up_multi)
+            elif ret == True:
+                return_row_multi = return_row_down_multi - return_row_up_multi
+                return_col_multi = return_col_down_multi - return_col_up_multi
+
+        elif period == 1:
+            if ret == False:
+                return_row_multi = np.exp(return_row_down_plus) - np.exp(return_row_up_plus)
+                return_col_multi = np.exp(return_col_down_plus) - np.exp(return_col_up_plus)
+            elif ret == True:
+                return_row_multi = return_row_down_plus - return_row_up_plus
+                return_col_multi = return_col_down_plus - return_col_up_plus
+
+        return return_row_multi, return_col_multi
 

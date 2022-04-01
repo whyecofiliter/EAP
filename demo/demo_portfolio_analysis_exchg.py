@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(".."))
 # Monthly return of stocks in China security market
 month_return = pd.read_hdf('.\data\month_return.h5', key='month_return')
 trade_data = pd.read_hdf('.\data\mean_filter_trade.h5', key='data')
+risk_premium = pd.read_hdf('.\data\\risk_premium.h5', key='data')
 
 # %% preprocessing data
 # forward the monthly return for each stock
@@ -65,12 +66,27 @@ uni_1.summary_and_test()
 uni_1.print_summary_by_time()
 uni_1.print_summary()
 
-# Bivariate analysis
+# Independent-sort Bivariate analysis
 bi_1 = Bivariate(np.array(test_data_1), number=4)
 bi_1.average_by_time()
 bi_1.summary_and_test()
 bi_1.print_summary_by_time()
 bi_1.print_summary()
+
+# Risk Adjustment
+risk_model = risk_premium[['MKT', 'SMB', 'HML']]
+risk_model = risk_model['2000':'2019']
+bi_1.factor_adjustment(risk_model)
+bi_1.print_summary()
+
+# Dependent-sort Bivariate Analysis
+bi_1_de = Bivariate(test_data_1, number=4)
+bi_1_de.fit(conditional=True)
+bi_1_de.print_summary()
+
+# Risk Adjustment
+bi_1_de.factor_adjustment(risk_model)
+bi_1_de.print_summary()
 
 # %% construct test_data for bivariate analysis
 # dataset 2 : 
@@ -95,5 +111,20 @@ bi_2.average_by_time()
 bi_2.summary_and_test()
 bi_2.print_summary_by_time()
 bi_2.print_summary()
+
+# Risk Adjustment
+risk_model = risk_premium[['MKT', 'SMB', 'HML']]
+risk_model = risk_model['2004':'2019']
+bi_2.factor_adjustment(risk_model)
+bi_2.print_summary()
+
+# Dependent-sort Bivariate Analysis
+bi_2_de = Bivariate(test_data_2, number=4)
+bi_2_de.fit(conditional=True)
+bi_2_de.print_summary()
+
+# Risk Adjustment
+bi_2_de.factor_adjustment(risk_model)
+bi_2_de.print_summary()
 
 # %%

@@ -1,13 +1,11 @@
 '''
-Fama-Macbeth regression
+Factor risk premium
 '''
-
 # %% set system path
 import sys,os
 sys.path.append(os.path.abspath(".."))
 
 # %% import data
-# Monthly return of stocks in China security market
 import pandas as pd
 
 month_return = pd.read_hdf('.\data\month_return.h5', key='month_return')
@@ -81,9 +79,7 @@ trade_data['Date_merge'] = pd.to_datetime(trade_data['TradingDate'])
 #company_data['Yearmonth'] = company_data['Date_merge'].map(lambda x : 1000*x.year + x.month)
 trade_data['Date_merge'] += MonthBegin()
 
-# dataset starts from '2000-01'
-company_data = company_data[company_data['Date_merge'] >= '2000-01']
-month_return = month_return[month_return['Date_merge'] >= '2000-01']
+# merge data
 return_company = pd.merge(month_return, company_data, on=['Stkcd_merge', 'Date_merge'])
 return_company = pd.merge(return_company, trade_data, on=['Stkcd_merge', 'Date_merge'])
 
@@ -91,79 +87,48 @@ return_company = pd.merge(return_company, trade_data, on=['Stkcd_merge', 'Date_m
 return_company = return_company.set_index(['Stkcd', 'Trdmnt'])
 return_company = pd.merge(return_company, beta, left_index=True, right_index=True)
 
-# %% Fama-Macbeth regression
-# dataset : #1
-# exclude tail stocks 
-# range from 2000-01-01 ~ 2019-12-01 
-from fama_macbeth import Fama_macbeth_regress
+# %% generate factor risk premium
+from fama_macbeth import Factor_mimicking_portfolio
+import numpy as np
 
-test_data_1 = return_company[(return_company['cap']==True) & (return_company['Ndaytrd']>=10)]
-test_data_1 = test_data_1[['emrwd', 'beta', 'Size', 'BM', 'ROE(TTM)', 'asset_growth_rate', 'momentum', 'specific_Turnover', 'Date_merge']].dropna()
-test_data_1 = test_data_1[(test_data_1['Date_merge'] >= '2000-01-01') & (test_data_1['Date_merge'] <= '2019-12-01')]
+# Size and Value factor risk premium
+# select stocks whose size is among the up 30% stocks in each month and whose trading 
+# days are more than or equal to 10 days
+size_bm = return_company[(return_company['Ndaytrd']>=10)]
+size_bm = size_bm[['emrwd', 'Size', 'BM', 'Date_merge', 'Size']].dropna()
+#size_bm = size_bm[(size_bm['Date_merge'] >= '1991-01-01') & (size_bm['Date_merge'] <= '2019-12-01')]
+# construct portfolio
+size_bm_portfolio = Factor_mimicking_portfolio(np.array(size_bm))
+CNSMB, CNHML = size_bm_portfolio.portfolio_return()
+CNSMB = - CNSMB
+CNSMB = CNSMB.rename('SMB')
+CNHML = CNHML.rename('HML')
 
-model = Fama_macbeth_regress(test_data_1)
-result = model.fit(add_constant=True)
-model.summary_by_time()
-model.summary()
+size_rmw = return_company[(return_company['Ndaytrd']>=10)]
+size_rmw = size_rmw[['emrwd', 'Size', 'ROE(TTM)', 'Date_merge', 'Size']].dropna()
+size_rmw = size_rmw[(size_rmw['Date_merge'] >= '2004-01-01') & (size_rmw['Date_merge'] <= '2019-12-01')]
+# construct portoflio
+size_rmw_portfolio = Factor_mimicking_portfolio(np.array(size_rmw))
+CNrow, CNRMW = size_rmw_portfolio.portfolio_return()
+CNRMW = CNRMW.rename('RMW')
 
-# %% Fama-Macbeth regression
-# dataset : #2
-# include tail stocks
-# range from 2000-01 ~ 2019-12-01
-from fama_macbeth import Fama_macbeth_regress
+size_cma = return_company[(return_company['Ndaytrd']>=10)]
+size_cma = size_cma[['emrwd', 'Size', 'asset_growth_rate', 'Date_merge', 'Size']].dropna()
+#size_cma = size_cma[(size_cma['Date_merge'] >= '2000-01-01') & (size_cma['Date_merge'] <= '2019-12-01')]
+# construct portoflio
+size_cma_portfolio = Factor_mimicking_portfolio(np.array(size_cma))
+CNrow, CNCMA = size_cma_portfolio.portfolio_return()
+CNCMA = CNCMA.rename('CMA')
 
-test_data_2 = return_company[(return_company['Ndaytrd']>=10)]
-test_data_2 = test_data_2[['emrwd', 'beta', 'Size', 'BM', 'ROE(TTM)', 'asset_growth_rate', 'momentum', 'specific_Turnover', 'Date_merge']].dropna()
-test_data_2 = test_data_2[(test_data_2['Date_merge'] >= '2000-01-01') & (test_data_2['Date_merge'] <= '2019-12-01')]
+# generate market portoflio and market risk premium
+from portfolio_analysis import Univariate
+beta_portfolio = return_company[(return_company['Ndaytrd']>=10)]
+beta_portfolio = beta_portfolio[['emrwd', 'Size', 'Date_merge']].dropna()
+beta_portfolio = Univariate(np.array(beta_portfolio), number=0)
 
-model = Fama_macbeth_regress(test_data_2)
-result = model.fit(add_constant=True)
-model.summary_by_time()
-model.summary()
+beta = beta_portfolio.average_by_time()
+CNBETA = pd.Series(beta[0], index=np.unique(beta_portfolio.sample[:, 2]))
+CNBETA = CNBETA.rename('MKT')
 
-# %% Fama-Macbeth regression
-# dataset : #3
-# exclude tail stocks 
-# range from 2000-01-01 ~ 2016-12-01 
-from fama_macbeth import Fama_macbeth_regress
-
-test_data_3 = return_company[(return_company['cap']==True) & (return_company['Ndaytrd']>=10)]
-test_data_3 = test_data_3[['emrwd', 'beta', 'Size', 'BM', 'ROE(TTM)', 'asset_growth_rate', 'momentum', 'specific_Turnover', 'Date_merge']].dropna()
-test_data_3 = test_data_3[(test_data_3['Date_merge'] >= '2000-01-01') & (test_data_3['Date_merge'] <= '2016-12-01')]
-
-model = Fama_macbeth_regress(test_data_3)
-result = model.fit(add_constant=True)
-model.summary()
-model.summary_by_time()
-
-# %% Fama-Macbeth regression
-# dataset : #4
-# include tail stocks 
-# range from 2000-01-01 ~ 2016-12-01 
-from fama_macbeth import Fama_macbeth_regress
-
-test_data_4 = return_company[(return_company['Ndaytrd']>=10)]
-test_data_4 = test_data_4[['emrwd', 'beta', 'Size', 'BM', 'ROE(TTM)', 'asset_growth_rate', 'momentum', 'specific_Turnover', 'Date_merge']].dropna()
-test_data_4 = test_data_4[(test_data_4['Date_merge'] >= '2000-01-01') & (test_data_4['Date_merge'] <= '2016-12-01')]
-
-model = Fama_macbeth_regress(test_data_4)
-result = model.fit(add_constant=True)
-model.summary()
-model.summary_by_time()
-
-# %% Fama-Macbeth regression
-# dataset : #2
-# include tail stocks
-# range from 2000-01 ~ 2019-12-01
-from fama_macbeth import Fama_macbeth_regress
-
-test_data_2 = return_company[(return_company['Ndaytrd']>=10)]
-test_data_2 = test_data_2[['emrwd', 'beta', 'Size', 'BM', 'ROE(TTM)', 'asset_growth_rate', 'Date_merge']].dropna()
-test_data_2 = test_data_2[(test_data_2['Date_merge'] >= '2000-01-01') & (test_data_2['Date_merge'] <= '2019-12-01')]
-
-model = Fama_macbeth_regress(test_data_2)
-result = model.fit(add_constant=True)
-model.summary_by_time()
-model.summary()
-
-# %%
+# %% merge data
+risk_premium = pd.concat([CNBETA, CNSMB, CNHML, CNRMW, CNCMA], axis=1).shift(1)

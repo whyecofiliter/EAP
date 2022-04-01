@@ -1,4 +1,8 @@
+'''
+Factor : Investment
+'''
 # %% import package
+from multiprocessing import Condition
 from numpy import dtype
 import pandas as pd
 import sys, os
@@ -9,6 +13,7 @@ sys.path.append(os.path.abspath(".."))
 # Monthly return of stocks in China security market
 month_return = pd.read_hdf('.\data\month_return.h5', key='month_return')
 company_data = pd.read_hdf('.\data\last_filter_pe.h5', key='data')
+risk_factor = pd.read_hdf('.\data\\risk_premium.h5', key='data')
 
 # %% preprocessing data
 # forward the monthly return for each stock
@@ -66,17 +71,43 @@ test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'asset_growth_rate', 'Date_merge'
 test_data_1 = test_data_1[(test_data_1['Date_merge'] >= '2004-01-01') & (test_data_1['Date_merge'] <= '2019-12-01')]
 
 # Univariate analysis
-uni_1 = Univariate(np.array(test_data_1[['emrwd', 'asset_growth_rate', 'Date_merge']]), number=9)
-uni_1.summary_and_test()
+uni_1 = Univariate(test_data_1[['emrwd', 'asset_growth_rate', 'Date_merge']], number=9)
+uni_1.fit()
 uni_1.print_summary_by_time()
 uni_1.print_summary()
 
-# Bivariate analysis
-bi_1 = Bivariate(np.array(test_data_1), number=4)
+# Factor adjustment
+# Fama French 3 factors model adjust 
+# risk factor model
+risk_model = risk_factor['2004':'2019'][['MKT', 'SMB','HML']]
+uni_1.factor_adjustment(risk_model)
+uni_1.print_summary()
+
+# Summary Statistics
+uni_1.summary_statistics(periodic=True, variables=np.array(test_data_1[['emrwd', 'Msmvttl']]))
+
+#%% Independent-sort Bivariate analysis
+bi_1 = Bivariate(test_data_1, number=4)
 bi_1.average_by_time()
 bi_1.summary_and_test()
 bi_1.print_summary_by_time()
 bi_1.print_summary()
+
+# Factor adjustment
+# Fama French 3 factors model adjust 
+# risk factor model
+risk_model = risk_factor['2004':'2019'][['MKT', 'SMB','HML']]
+bi_1.factor_adjustment(risk_model)
+bi_1.print_summary()
+
+# Dependent-sort Bivariate Analysis
+bi_1_de = Bivariate(test_data_1, number=4)
+bi_1_de.fit(conditional=True)
+bi_1_de.print_summary()
+
+# RIsk Adjustment
+bi_1_de.factor_adjustment(risk_model)
+bi_1_de.print_summary()
 
 # %% construct test_data for bivariate analysis
 # dataset 2 : tail stocks & ROE Bivariate  
@@ -95,11 +126,33 @@ uni_2.summary_and_test()
 uni_2.print_summary_by_time()
 uni_2.print_summary()
 
+# Factor adjustment
+# Fama French 3 factors model adjust 
+# risk factor model
+risk_model = risk_factor['2004':'2019'][['MKT', 'SMB','HML']]
+uni_2.factor_adjustment(risk_model)
+uni_2.print_summary()
+
 # Bivariate analysis
 bi_2 = Bivariate(np.array(test_data_2), number=4)
 bi_2.average_by_time()
 bi_2.summary_and_test()
 bi_2.print_summary_by_time()
 bi_2.print_summary()
+
+# Factor adjustment
+# Fama French 3 factors model adjust 
+# risk factor model
+bi_2.factor_adjustment(risk_model)
+bi_2.print_summary()
+
+# Dependent-sort Bivariate Analysis
+bi_2_de = Bivariate(test_data_2, number=4)
+bi_2_de.fit(conditional=True)
+bi_2_de.print_summary()
+
+# RIsk Adjustment
+bi_2_de.factor_adjustment(risk_model)
+bi_2_de.print_summary()
 
 # %%

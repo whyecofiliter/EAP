@@ -78,6 +78,9 @@ def test_univariate() :
     for i in range(19):
         year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
     
+    # generate variables
+    variable_1 = np.random.normal(0, 1, 20*3000)
+    variable_2 = np.random.normal(0, 1, 20*3000)
     # generate character
     character=np.random.normal(0,1,20*3000)
     # generate future return
@@ -98,10 +101,24 @@ def test_univariate() :
     
     # generate factor
     factor=np.random.normal(0,1.0,(20,1))
-    exper=uni(sample,9,factor=factor,maxlag=12)
+    exper=uni(sample, 9, maxlag=12)
+    exper.fit()
+    exper.factor_adjustment(factor)
     # print(exper.summary_and_test())
     exper.print_summary()
+
+    # summary statstics
+    exper.summary_statistics()
+    exper.summary_statistics(periodic=True)
+    exper.summary_statistics(variables=np.array([variable_1, variable_2]).T, periodic=True)
     
+    # correlation 
+    variable_3 = np.random.normal(0, 1, 20*3000)
+    variable_4 = np.random.normal(0, 1, 20*3000)
+    print('-------------------------------------- Correlation ---------------------------------')
+    exper.correlation(variables=np.array([variable_1, variable_2, variable_3, variable_4]).T, periodic=True)
+    exper.correlation(variables=np.array([variable_1, variable_2, variable_3, variable_4]).T)
+    print(np.array([variable_1, variable_2, variable_3, variable_4]).T)
 
 test_univariate()
     
@@ -128,6 +145,8 @@ def test_bivariate():
     # generate character
     character_1 = np.random.normal(0, 1, 20*3000)
     character_2 = np.random.normal(0, 1, 20*3000)
+
+
 
     # generate future return
     ret=character_1*-0.5 + character_2*0.5 + np.random.normal(0,1,20*3000)
@@ -158,12 +177,72 @@ def test_bivariate():
     # test function print_summary
     exper.print_summary()
     
+    print('\n---------------------------------- Factor Adjustment--------------------------------------\n')
     # generate factor
-    factor=np.random.normal(0,1.0,(20,1))
-    exper=bi(sample,9,factor=factor,maxlag=12)
+    factor = np.random.normal(0, 1.0, (20, 1))
+    exper = bi(sample, 9, maxlag=12)
     exper.fit()
+    exper.factor_adjustment(factor)
     exper.print_summary(export=True)
+
+    print('\n---------------------------------- Conditinoal Portfolio ----------------------------------\n')
+    # conditional portfolio
+    # test function average_by_time
+    exper_con = bi(sample, 9, maxlag=12)
+    average_group_time = exper_con.average_by_time(conditional=True)
+    print('average_group_time: \n', average_group_time)
+    print('shape of average_group_time: \n', np.shape(average_group_time))
+    # test function difference
+    result = exper_con.difference(average_group_time)
+    print('result :\n', result)
+    print('difference matrix :\n', np.shape(result))
+    # test function summary_and_test
+    average, ttest = exper_con.summary_and_test(conditional=True)
+    print('average :\n', average)
+    print(' shape of average :', np.shape(average))
+    print('ttest :\n', ttest)
+    print('shape of ttest :', np.shape(ttest))
+    # test function print_summary_by_time()
+    exper_con.print_summary_by_time()
+    # test function print_summary
+    exper_con.print_summary()
   
 test_bivariate()
 
+# %% test persistence
+def test_persistence():
+    '''
+    This function is for testing persistence
+    '''
+    import numpy as np
+    import pandas as pd
+    from portfolio_analysis import Persistence as pste
+    
+    # generate time 
+    year = np.ones((3000,1), dtype=int)*2020
+    id = np.linspace(1, 3000, 3000, dtype=int)
+    for i in range(19):
+        year = np.append(year, (2019-i)*np.ones((3000,1), dtype=int))
+        id = np.append(id, np.linspace(1, 3000, 3000, dtype=int))
+    
+    # generate character
+    character_1 = np.random.normal(0, 1, 20*3000)
+    character_2 = np.random.normal(0, 1, 20*3000)
+    
+    # generate future return
+    ret=character_1*-0.5 + character_2*0.5 + np.random.normal(0,1,20*3000)
+    # create sample containing future return, character, time
+    sample = np.array([id, year, ret, character_1, character_2]).T
+    sample = pd.DataFrame(sample, columns=['id', 'year', 'ret', 'character_1', 'character_2'])
+    
+    exper = pste(sample)
+    exper.fit(lags=[1, 2, 3])
+    exper.summary(periodic=True)
+    exper.summary()
+
+#    sample = sample.set_index(['id', 'year']).sort_index()
+#    sample = sample.set_index([sample.columns[0], sample.columns[1]]).sort_index()
+#    print(sample)
+    
+test_persistence()
 # %%

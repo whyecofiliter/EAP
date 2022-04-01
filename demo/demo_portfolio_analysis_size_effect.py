@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(".."))
 # %% import data
 # Monthly return of Stocks in China Security Market
 month_return = pd.read_hdf('.\data\month_return.h5', key='month_return')
+risk_premium = pd.read_hdf('.\data\\risk_premium.h5', key='data')
 
 # %% add time
 import datetime as dt
@@ -23,7 +24,7 @@ month_return['emrnd'] = month_return.groupby(['Stkcd'])['Mretnd'].shift(-1)
 # select the A share stock
 month_return = month_return[month_return['Markettype'].isin([1, 4, 16])]
 
-# %% distinguish the stocks whose size is among the up 30% stocks in each month
+# distinguish the stocks whose size is among the up 30% stocks in each month
 def percentile(stocks) :
     return stocks >= stocks.quantile(q=.3)
 
@@ -40,7 +41,8 @@ test_data_1 = month_return[(month_return['cap']==True) & (month_return['Ndaytrd'
 # construct data for univariate analysis
 test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'Time']].dropna()
 test_data_1 = test_data_1[(test_data_1['Time'] >= '2000-01-01') & (test_data_1['Time'] <= '2019-12-01')]
-# analysis
+
+# Univariate analysis
 uni_1 = Univariate(np.array(test_data_1), number=9)
 uni_1.average_by_time()
 uni_1.summary_and_test()
@@ -91,3 +93,11 @@ uni_4.print_summary_by_time()
 uni_4.print_summary()
 
 # %%
+# %% Persistence Analysis
+from portfolio_analysis import Persistence as perse
+
+test_data_1_per = month_return[['Stkcd', 'Time', 'Msmvttl']]
+perse_1 = perse(test_data_1_per)
+perse_1.fit(lags=[1, 2, 3])
+perse_1.summary(periodic=True)
+perse_1.summary(periodic=False)

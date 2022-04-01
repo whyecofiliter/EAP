@@ -38,13 +38,13 @@ def white(y, X, **kwargs) :
     r, c = np.shape(X)
     result = ols(y, X, **kwargs)
     resid = result.resid
-    resid_sqr = np.expand_dims(resid**2, axis=1)
+    resid_sqr = np.diag(resid**2)
     if kwargs['constant'] == True:
         X = add_constant(X)
-    S0 = 1/r*X.T.dot(X*resid_sqr)
+    S0 = 1 / r * X.T.dot(resid_sqr.dot(X))
     temp = X.T.dot(X)
     V_ols = r*inv(temp).dot(S0).dot(inv(temp))
-
+    
     return V_ols
 
 '''
@@ -73,23 +73,25 @@ def newey_west(y, X, J=None, **kwargs) :
     elif J == None :
         J = int(np.floor(4*(r/100)**(2/9)))
     
-    temp_cor = np.zeros((len(result.params), len(result.params)))
-    for j in range(J) :
-        # the weight w_j= 1- j/(+J), j start from 1
-        # in python however the index starts from 0, and thus j+1 is used 
-        w_j = 1 - (j+1) / (1+J)
-        for t in range(j+1, r) :
-            if j == 0:
-                temp_cor = temp_cor + (1/r)*w_j*resid[t]*resid[t-1]*(X[t,:].T.dot(X[t-1,:])+X[t-1,:].T.dot(X[t,:]))
-            elif j > 0 :
-                temp_cor = temp_cor + (1/r)*w_j*resid[t]*resid[t-j]*(X[t,:].T.dot(X[t-j,:])+X[t-j,:].T.dot(X[t,:]))
-
-    resid_sqr = np.expand_dims(resid**2, axis=1)
     if kwargs['constant'] == True:
         X = add_constant(X)
-    S0 = 1/r*X.T.dot(X*resid_sqr) + temp_cor
+    r_X, c_X = np.shape(X)
+    temp_cor = np.zeros((c_X, c_X))
+    X = np.matrix(X)
+    for j in range(1, J+1) :
+        # the weight w_j= 1- j/(+J), j start from 1
+        # in python however the index starts from 0, and thus j+1 is used 
+        w_j = 1 - j / (1 + J)
+        for t in range(j+1, r+1) :
+            temp_cor = temp_cor + (1 / r) * w_j * resid[t-1] * resid[t-j-1] * \
+                       (X[t-1, :].T.dot(X[t-j-1, :]) + X[t-j-1,:].T.dot(X[t-1, :]))
+
+    resid_sqr = np.diag(resid**2)
+
+    temp_var =  1 / r * X.T.dot(resid_sqr.dot(X))    
+    S0 = temp_var + temp_cor
     temp = X.T.dot(X)
-    V_ols = r*inv(temp).dot(S0).dot(inv(temp))
+    V_ols = r * inv(temp).dot(S0).dot(inv(temp))
 
     return V_ols
 
