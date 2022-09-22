@@ -2000,6 +2000,255 @@ exper.summary()
 
 
 
+#### class Tangency_porfolio():
+
+This class is to calculate the tangency portfolio given the asset and the risk-free rate.
+
+##### def \__init__(self, rf, mu, cov\_mat):
+
+**input :**
+
+*rf (float):* risk-free rate
+
+*mu (array/Series):* stock rate of return
+
+*cov_mat (matrix):* covariance matrix of stock rate of return
+
+
+
+##### def _portfolio_weight(self):
+
+**output :**
+
+*weight (array):* weight of assets in tangency portfolio
+
+
+
+##### def _sharpe_ratio(self):
+
+**output:**
+
+*sr (float):* the sharpe ratio of the tangency portoflio
+
+
+
+##### def fit(self):
+
+this function fits the function _portfolio_weight and _sharpe_ratio
+
+
+
+##### def print(self):
+
+print the result
+
+
+
+**Example**
+
+```python
+def test_tangency_portfolio():
+    '''
+    This function is for testing rangency_portfolio
+    '''
+    import numpy as np
+    from portfolio_analysis import Tangency_portfolio as tanport
+    
+    # construct the sample data 1
+    mu = np.array([0.0427, 0.0015, 0.0285])
+    cov_mat = np.mat([[0.01, 0.0018, 0.0011], [0.0018, 0.0109, 0.0026], [0.0011, 0.0026, 0.0199]])
+    rf = 0.005
+    
+    # calculate the weight and the sharpe ratio
+    portfolio = tanport(rf, mu, cov_mat)
+    print(portfolio._portfolio_weight())
+    print(portfolio.fit())
+    portfolio.print()
+
+    # construct the sample data 2
+    mu = np.array([0.0427, 0.0015, 0.0285, 0.0028])
+    cov_mat = np.mat([[0.01, 0.0018, 0.0011, 0], [0.0018, 0.0109, 0.0026, 0], [0.0011, 0.0026, 0.0199, 0], [0, 0, 0, 0.1]])
+    rf = 0.005
+    
+    # calculate the weight and the sharpe ratio
+    portfolio = tanport(rf, mu, cov_mat)
+    print(portfolio._portfolio_weight())
+    print(portfolio.fit())
+    portfolio.print()
+
+test_tangency_portfolio()
+
+================================================================================================================================
+[[ 1.02682298]
+ [-0.32625112]
+ [ 0.29942815]]
+(matrix([[ 1.02682298],
+        [-0.32625112],
+        [ 0.29942815]]), 0.4202276695645767)
++--------+---------+----------+---------+
+| Weight |  asset1 |  asset2  |  asset3 |
++--------+---------+----------+---------+
+|        | 1.02682 | -0.32625 | 0.29943 |
++--------+---------+----------+---------+
+[[ 1.03285649]
+ [-0.32816815]
+ [ 0.30118756]
+ [-0.00587591]]
+(matrix([[ 1.03285649],
+        [-0.32816815],
+        [ 0.30118756],
+        [-0.00587591]]), 0.42028525345017165)
++--------+---------+----------+---------+----------+
+| Weight |  asset1 |  asset2  |  asset3 |  asset4  |
++--------+---------+----------+---------+----------+
+|        | 1.03286 | -0.32817 | 0.30119 | -0.00588 |
++--------+---------+----------+---------+----------+
+
+```
+
+
+
+#### class Spanning_test():
+
+This class is designed for spanning test. Three asymptotic estimates and one small sample estimates are contained. The construction is based on 
+
+R. Kan, G. Zhou, Test of Mean-Variance Spanning, Annals of Economics and Finance, 2012, 13-1, 145-193.
+
+##### def \__init__(self, Rn, Rk):
+
+**input :**
+
+*Rn (ndarray/Series/DataFrame) :* The assets to be tested.
+
+*Rk (ndarray/Series/DataFrame) :* The fundamental assets. 
+
+
+
+##### def _cov(self):
+
+This function calculates the covariance.
+
+
+
+##### def _regress(self):
+
+This function regresses Rn on Rk and return the eigen value and U statistics for building estimates of hypothesis tests.
+
+ **output :**
+
+*eigen1 (float) :* the eigen value #1
+
+*eigen2 (float) :* the eigen value #2
+
+*U (float) :* the U statistics
+
+
+
+##### def _build_statistics(self):
+
+This function build three asymptotic estimates and one small sample estimate. The asymptotic estimates include likelihood ratio (LR), Wald test (W), Lagrange multiplier test (LM). The one small sample estimate is F-test corresponding to likelihood ratio. The asymptotic estimates satisfy the chi-square distribution with freedom 2N, where N is the number of test assets. The small sample estimate satisfies the F-distribution with coefficient, 2N, 2(T-K-N) for N>1, and 2, (T-K-1) for N=1.
+
+**output :**
+
+*perc (array) :* the quantiles of chi-square distribution at 90%, 95%, 99%. 
+
+*perc_F (array) :* the quantiles of F distribution at 90%, 95%, 99%.
+
+*[LR, chi_LR] (float) :* The LR estimate and p-value of test. 
+
+*[W, chi_W] (float) :* The Wald estimate and p-value of test.
+
+*[LM, chi_LM] (float) :* The LM estimate and p-value of test.
+
+*[LR_F, f_LR] (float) :* The F estimate and p-value of test.
+
+
+
+##### def fit(self):
+
+This function fits the model
+
+**output :**
+
+*perc (array) :* the quantiles of chi-square distribution at 90%, 95%, 99%. 
+
+*perc_F (array) :* the quantiles of F distribution at 90%, 95%, 99%.
+
+*[LR, chi_LR] (float) :* The LR estimate and p-value of test. 
+
+*[W, chi_W] (float) :* The Wald estimate and p-value of test.
+
+*[LM, chi_LM] (float) :* The LM estimate and p-value of test.
+
+*[LR_F, f_LR] (float) :* The F estimate and p-value of test.
+
+
+
+##### def summary(self):
+
+This function print the result.
+
+
+
+**Example**
+
+```python
+# %% test Spanning test
+def test_spanning_test():
+    '''
+    This function is for testing spanning test
+    '''
+    import numpy as np
+    from portfolio_analysis import Spanning_test as span
+
+    factor1 = np.random.normal(loc=0.1, scale=1.0, size=(240, 1))
+    factor2 = np.random.normal(loc=0.2, scale=2.0, size=(240, 1))
+    factor3 = np.random.normal(loc=0.5, scale=4.5, size=(240, 1))
+
+    factor4 = 0.1 * factor1 + 0.5 * factor2 + 0.4 * factor3
+    factor5 = -0.2 * factor1 - 0.1 * factor2 + 1.3 * factor3
+    factor6 = 1.0 * factor1 - 0.5 * factor2 + 0.5 * factor3
+    factor7 = 0.2 * factor1 + 0.1 * factor2 + 0.7 * factor3
+    factor8 = -0.1 * factor1 -0.1 * factor2 + 1.2 * factor3
+    factor9 = -0.3 * factor1 - 0.2 * factor2 + 1.5 * factor3
+    factor10 = 0.9 * factor1 - 0.5 * factor2 + 0.6 * factor3
+    factor11 = 0.2 * factor1 - 0.1 * factor2 + 0.9 * factor3
+    
+    factornew1 = np.random.normal(loc=0.3, scale=2.0, size=(240, 1))
+
+    factork = np.block([factor1, factor2, factor3, factor4, factor5, factor6, factor7, factor8, factor9])
+    factorn = np.block([factor10, factor11])
+
+    model1 = span(factorn, factork)
+    model1._regress()
+    model1._build_statistics()
+    model1.fit()
+    model1.summary()
+
+    model2 = span(factornew1, factork)
+    model2._regress()
+    model2._build_statistics()
+    model2.fit()
+    model2.summary()
+
+test_spanning_test()
+
+================================================================================================================================
++--------+----------+---------+----------+---------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
+| asset  |  alpha   | p-value |  delta   |  F-test | p-value-F |    LR    | p-value-LR |    W     | p-value-W |    LM    | p-value-LM |  T  | N | K |
++--------+----------+---------+----------+---------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
+| asset0 | -0.00000 | 0.13810 | -0.00000 | 3.10291 |  0.01543  | 12.83472 |  0.01211   | 13.14587 |  0.01058  | 12.53381 |  0.01379   | 240 | 2 | 9 |
+| asset1 | -0.00000 | 0.97109 | -0.00000 | 3.10291 |  0.01543  | 12.83472 |  0.01211   | 13.14587 |  0.01058  | 12.53381 |  0.01379   | 240 | 2 | 9 |
++--------+----------+---------+----------+---------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
++--------+---------+---------+---------+----------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
+| asset  |  alpha  | p-value |  delta  |  F-test  | p-value-F |    LR    | p-value-LR |    W     | p-value-W |    LM    | p-value-LM |  T  | N | K |
++--------+---------+---------+---------+----------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
+| asset0 | 0.47970 | 0.00029 | 1.04366 | 10.56632 |  0.00004  | 21.09647 |  0.00003   | 22.05146 |  0.00002  | 20.19584 |  0.00004   | 240 | 1 | 9 |
++--------+---------+---------+---------+----------+-----------+----------+------------+----------+-----------+----------+------------+-----+---+---+
+```
+
+
+
 ### fama_macbeth
 
 This module is designed for Fama_Macbeth regression(1976). 
@@ -3267,6 +3516,158 @@ t_value :  [135.08 -17.19 13.80 34.95 14.61 21.31 48.56 -44.62 2.75 -28.71 51.63
 p_value :  [0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00]
 b : [[-0.14 0.10 0.25 0.11 0.16 0.40 -0.36 0.03 -0.21 0.40]]
 ```
+
+
+
+### time_frequency
+
+This module is designed for time frequency asset pricing model, including Fourier Transform based method and Wavelet based method.
+
+#### class Wavelet():
+
+This class is designed for decomposing the series using wavelet method, basing on the package  **pywt**.
+
+##### def \__init__(self, series):
+
+**input:** 
+
+*series (array) :* the series to be decomposed.
+
+
+
+##### def _decompose(self, wave, mode, level=None):
+
+This function is designed for decomposing the series using given wavelet family, mode and level.
+
+**input :**
+
+*wave (str) :* The chosen wavelet family, which is the same in **pywt**.
+
+*mode (str) :* choose multiscale or single scale. 'multi' denotes multiscale. 'single' denotes single scale.
+
+*level (int) :* the level of multiscale. If 'multi' is chosen, it must be set.
+
+**output :**
+
+*wave_dec (list):* The decomposed details including (CA, CN, CN-1,..., C1).
+
+
+
+##### def _pick_details(self):
+
+This function is designed for picking the details of decomposed series at different level.
+
+**output:**
+
+*pick_series (list):* pick the detail series at each level. Each elements in list only contains the details at that level. 
+
+
+
+##### def _rebuild(self):
+
+This function is designed for rebuilding the detail series from the picked series at each level.
+
+**output:**
+
+*wave_rec (list):* The recomposed series from the details at each level.
+
+
+
+##### def fit(self, wave, mode, level, output=False):
+
+This function is designed for fitting the model.
+
+**input :**
+
+*wave (str) :* The chosen wavelet family, which is the same in **pywt**.
+
+*mode (str) :* choose multiscale or single scale. 'multi' denotes multiscale. 'single' denotes single scale.
+
+*level (int) :* the level of multiscale. If 'multi' is chosen, it must be set.
+
+*output (boolean):* whether output the result. The **DEFAULT** is False.
+
+**output :**
+
+*wave_rec (list):* The recomposed series from the details at each level, if output is True.
+
+
+
+#### class wavelet_pricing():
+
+This class is designed for wavelet pricing model.
+
+##### def \__init__(self, rets, factors):
+
+**input :**
+
+*rets (ndarray/Series/DataFrame):* the dependent variables of the return.
+
+*factors (ndarray/Series/DataFrame):* the independent variables of factors.
+
+
+
+##### def wavelet_dec_rec(self, **kwargs):
+
+This function is designed for wavelet decomposing and recomposing.
+
+**input :**
+
+*kwargs :* the kwargs include wave family, mode, and level of wavelet.
+
+**output :**
+
+*rets_dec_s (list):* The recomposed detail series of returns (rets).
+
+*factors_dec_s (list):* The recomposed detail series of factors (factors).
+
+
+
+##### def wavelet_regression(self, **kwargs):
+
+This function is designed for OLS regression of detail series between return and factors at each level.
+
+**input :**
+
+***kwargs :* the kwargs include 'constant': whether the regression includes the constant.
+
+**output :**
+
+*regress (list):* the regression results of OLS in package **statsmodels**.
+
+
+
+##### def fit(self, wave, mode, level, win=None, robust=False, constant=True):
+
+This function is designed for fitting the model.
+
+**input :**
+
+*wave (str) :* The chosen wavelet family, which is the same in **pywt**.
+
+*mode (str) :* choose multiscale or single scale. 'multi' denotes multiscale. 'single' denotes single scale.
+
+*level (int) :* the level of multiscale. If 'multi' is chosen, it must be set.
+
+*win (int):* The rolling window if rolling regression is used.
+
+*robust (boolean):* whether use the robust covariance matrix.
+
+*constant (boolean):* whether includes the constant in regression. The **DEFAULT** is True.
+
+
+
+##### def summary(self, export=False):
+
+This function is designed for printing the summary.
+
+**input :**
+
+*export (boolean):* whether export the summary table. The **DEFAULT** is False.
+
+**output :**
+
+*df (DataFrame):* if export is True, then return the summary table. 
 
 
 

@@ -2,6 +2,7 @@
 import sys,os
 
 sys.path.append(os.path.abspath(".."))
+
 #%% test class ptf_analysis()
 def test_ptf_analysis() :
     '''
@@ -245,4 +246,186 @@ def test_persistence():
 #    print(sample)
     
 test_persistence()
+# %% test tangency_portfolio
+def test_tangency_portfolio():
+    '''
+    This function is for testing rangency_portfolio
+    '''
+    import numpy as np
+    from portfolio_analysis import Tangency_portfolio as tanport
+
+    mu = np.array([0.0427, 0.0015, 0.0285])
+    cov_mat = np.mat([[0.01, 0.0018, 0.0011], [0.0018, 0.0109, 0.0026], [0.0011, 0.0026, 0.0199]])
+    rf = 0.005
+
+    portfolio = tanport(rf, mu, cov_mat)
+    print(portfolio._portfolio_weight())
+    print(portfolio.fit())
+    portfolio.print()
+
+    mu = np.array([0.0427, 0.0015, 0.0285, 0.0028])
+    cov_mat = np.mat([[0.01, 0.0018, 0.0011, 0], [0.0018, 0.0109, 0.0026, 0], [0.0011, 0.0026, 0.0199, 0], [0, 0, 0, 0.1]])
+    rf = 0.005
+
+    portfolio = tanport(rf, mu, cov_mat)
+    print(portfolio._portfolio_weight())
+    print(portfolio.fit())
+    portfolio.print()
+
+test_tangency_portfolio()
+
+# %% test Spanning test
+def test_spanning_test():
+    '''
+    This function is for testing spanning test
+    '''
+    import numpy as np
+    from portfolio_analysis import Spanning_test as span
+
+    factor1 = np.random.normal(loc=0.1, scale=1.0, size=(240, 1))
+    factor2 = np.random.normal(loc=0.2, scale=2.0, size=(240, 1))
+    factor3 = np.random.normal(loc=0.5, scale=4.5, size=(240, 1))
+
+    factor4 = 0.1 * factor1 + 0.5 * factor2 + 0.4 * factor3
+    factor5 = -0.2 * factor1 - 0.1 * factor2 + 1.3 * factor3
+    factor6 = 1.0 * factor1 - 0.5 * factor2 + 0.5 * factor3
+    factor7 = 0.2 * factor1 + 0.1 * factor2 + 0.7 * factor3
+    factor8 = -0.1 * factor1 -0.1 * factor2 + 1.2 * factor3
+    factor9 = -0.3 * factor1 - 0.2 * factor2 + 1.5 * factor3
+    factor10 = 0.9 * factor1 - 0.5 * factor2 + 0.6 * factor3
+    factor11 = 0.2 * factor1 - 0.1 * factor2 + 0.9 * factor3
+    
+    factornew1 = np.random.normal(loc=0.3, scale=2.0, size=(240, 1))
+
+    factork = np.block([factor1, factor2, factor3, factor4, factor5, factor6, factor7, factor8, factor9])
+    factorn = np.block([factor10, factor11])
+
+    model1 = span(factorn, factork)
+    model1._regress()
+    model1._build_statistics()
+    model1.fit()
+    model1.summary()
+
+    model2 = span(factornew1, factork)
+    model2._regress()
+    model2._build_statistics()
+    model2.fit()
+    model2.summary()
+
+test_spanning_test()
+
+# %%
+import numpy as np
+
+c_t1 = np.random.normal(loc=1, scale=3.0, size=10000)
+c_t2 = np.random.normal(loc=1, scale=1.5, size=10000) 
+c_t3 = c_t1 * c_t2
+c_t4 = 1/c_t1
+
+print('t1 and t2:', np.corrcoef(c_t1, c_t2))
+print('t1 and t3:', np.corrcoef(c_t1, c_t3))
+print('t2 and t3:', np.corrcoef(c_t2, c_t3))
+print('t1 and t4:', np.corrcoef(c_t1, c_t4))
+print('inv t1 and inv t3', np.corrcoef(1/c_t1, 1/c_t3))
+
+
+# %%
+import numpy as np
+from portfolio_analysis import Univariate as uni
+    
+    # generate time 
+year=np.ones((3000,1),dtype=int)*2020
+for i in range(19):
+    year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
+    
+    # generate variables
+variable_1 = np.random.normal(0, 1, 20*3000)
+variable_2 = np.random.normal(0, 1, 20*3000)
+    # generate character
+character=np.random.normal(0,1,20*3000)
+    # generate future return
+ret=character*-0.5+np.random.normal(0,1,20*3000)
+    # create sample containing future return, character, time
+sample=np.array([ret,character,year]).T
+    # generate the Univiriate Class
+
+# %%
+exper=uni(sample,9)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=uni(sample,9, maxlag=3)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=uni(sample,9, maxlag=6)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=uni(sample,9, maxlag=9)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=uni(sample,9, maxlag=12)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=uni(sample,9, maxlag=0)
+exper.fit()
+exper.print_summary()
+
+# %%
+import numpy as np
+from portfolio_analysis import Bivariate as bi
+    
+    # generate time 
+year = np.ones((3000,1), dtype=int)*2020
+for i in range(19):
+    year = np.append(year, (2019-i)*np.ones((3000,1), dtype=int))
+    
+    # generate character
+character_1 = np.random.normal(0, 1, 20*3000)
+character_2 = np.random.normal(0, 1, 20*3000)
+
+
+
+    # generate future return
+ret=character_1*-0.5 + character_2*0.5 + np.random.normal(0,1,20*3000)
+    # create sample containing future return, character, time
+sample=np.array([ret,character_1, character_2, year]).T
+    # generate the Univiriate Class
+exper=bi(sample,9)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=bi(sample,9, maxlag=3)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=bi(sample,9, maxlag=6)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=bi(sample,9, maxlag=9)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=bi(sample,9, maxlag=12)
+exper.fit()
+exper.print_summary()
+
+# %%
+exper=bi(sample,9, maxlag=0)
+exper.fit()
+exper.print_summary()
+
 # %%

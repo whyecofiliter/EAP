@@ -49,6 +49,8 @@ class TS_regress() :
         self.t_value = np.zeros((length, c+1))
         self.p_value = np.zeros((length, c+1))
         self.params_table = np.zeros((length, c+1))
+        self.r_square = np.zeros((length, 1))
+        self.adj_r = np.zeros((length, 1))
 
         for i in range(length) :
             result = OLS(self.list_y[i], add_constant(self.factor)).fit()
@@ -57,6 +59,8 @@ class TS_regress() :
             residue = result.resid
             self.alpha.append(params[0])
             self.e_mat[:, i] = residue
+            self.r_square[i, :] = result.rsquared
+            self.adj_r[i, :] = result.rsquared_adj
             if newey_west == True :
                 self.t_value[i, :], self.p_value[i, :] = newey_west_t(self.list_y[i], add_constant(self.factor), params=result.params, constant=False,**kwargs)
             elif newey_west == False:
@@ -94,6 +98,8 @@ class TS_regress() :
                 table.add_row([self._name_y[i]] + list(np.around(self.params_table[i, :], decimals=4)))
             table.add_row(['t-value'] + list(np.around(self.t_value[i, :], decimals=3)))
             table.add_row(['p-value'] + list(np.around(self.p_value[i, :], decimals=3)))
+            table.add_row(['R2'] + list(np.around(self.r_square[i, :], decimals=3)) + ['' for num in range(c)])
+            table.add_row(['Adj_R2'] + list(np.around(self.adj_r[i, :], decimals=3)) + ['' for num in range(c)])
               
         print(table)
 

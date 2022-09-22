@@ -11,22 +11,40 @@ from .time_series_regress import TS_regress
 
 
 class CS_regress() :
-    def __init__(self, y_list, factor) :
-        self.y_list = y_list
-        self.factor = factor
+    def __init__(self, list_y, factor) :
+        import numpy as np
+        from distutils.log import ERROR
+
+        if type(list_y).__name__ == 'DataFrame':
+            self._name_y = list(list_y.columns)
+            self.list_y = [np.array(list_y.iloc[:, i]) for i in range(len(list_y.columns))]
+        elif type(list_y).__name__ == 'list':
+            self._name_y = None
+            self.list_y = list_y
+        else:
+            return ERROR
+        
+        if type(factor).__name__ == 'DataFrame':
+            self._name_factor = list(factor.columns)
+            self.factor = np.array(factor)
+        elif type(factor).__name__ == 'ndarray':
+            self._name_factor = None
+            self.factor = factor
+        else:
+            return ERROR
     
     def ts_regress(self) :
         from statsmodels.api import OLS
         from statsmodels.api import add_constant
         import numpy as np
 
-        length = len(self.y_list)
+        length = len(self.list_y)
         r, c = np.shape(self.factor)
         beta = np.zeros((length, c))
         e = np.zeros((r, length))
 
         for i in range(length) :
-            result = OLS(self.y_list[i], add_constant(self.factor)).fit()
+            result = OLS(self.list_y[i], add_constant(self.factor)).fit()
             params = result.params[1:]
             beta[i, :] = params
             e[:, i] = result.resid
@@ -38,7 +56,7 @@ class CS_regress() :
     def ave(self) :
         import numpy as np
 
-        return np.mean(self.y_list, axis=1)
+        return np.mean(self.list_y, axis=1)
 
     def cs_regress(self, beta, err_mat, constant=True, gls=True, **kwargs) :
         '''
@@ -52,19 +70,19 @@ class CS_regress() :
         if constant == True and gls == False :
             result = OLS(y_mean, add_constant(beta)).fit()
             
-            return result.params[1:], result.resid 
+            return result.params[1:], result.resid, result.rsquared, result.rsquared_adj
         elif constant == False and gls == False :
             result = OLS(y_mean, beta).fit()
             
-            return result.params, result.resid
+            return result.params, result.resid, result.rsquared, result.rsquared_adj
         elif constant == True and gls == True :
             result = GLS(y_mean, add_constant(beta), err_mat).fit()
             
-            return result.params[1:], result.resid
+            return result.params[1:], result.resid, result.rsquared, result.rsquared_adj
         elif constant == False and gls == True :
-            result = GLS(y_mean, beta, err_mat).fit()            
+            result = GLS(y_mean, beta, err_mat).fit()         
 
-            return result.params, result.resid
+            return result.params, result.resid, result.rsquared, result.rsquared_adj
 
     def cov_mat(self, beta, err_mat, shanken=True, constant=True, gls=True, **kwargs) :
         '''
@@ -74,7 +92,7 @@ class CS_regress() :
         from numpy.linalg import inv
         from statsmodels.api import add_constant
 
-        length = len(self.y_list)
+        length = len(self.list_y)
         r, c = np.shape(self.factor)
         I = np.identity(length)
         fac_mat = np.cov(self.factor.T)
@@ -131,7 +149,7 @@ class CS_regress() :
         from numpy.linalg import inv
         from scipy.stats import chi2
         
-        length = len(self.y_list)
+        length = len(self.list_y)
         r, c = np.shape(self.factor)
         N = length
         K = c
@@ -148,7 +166,7 @@ class CS_regress() :
         import numpy as np
 
         beta, err_mat = self.ts_regress()
-        self.params, resid = self.cs_regress(beta, err_mat,**kwargs)
+        self.params, resid, self.rsquare, self.rsquare_adj = self.cs_regress(beta, err_mat,**kwargs)
         param_cov_mat, resid_cov_mat = self.cov_mat(beta, err_mat, **kwargs, params=self.params)
         self.params_t_value, self.params_p_value = self.t_test(param_cov_mat, self.params)
         self.alpha_test = self.union_test(resid_cov_mat, resid)
@@ -163,9 +181,13 @@ class CS_regress() :
         
         print("\n-------------------------- Risk Premium ------------------------------\n")
         table1 = PrettyTable()
+        if self._name_factor != None:
+            table1.add_column('variables', self._name_factor)
         table1.add_column('params', self.params)
         table1.add_column('t_value', self.params_t_value)
         table1.add_column('p_value', self.params_p_value)
+        table1.add_column('R2', [self.rsquare] + ['' for i in range(len(self.params)-1)])
+        table1.add_column('Adj R2', [self.rsquare_adj] + ['' for i in range(len(self.params)-1)])
         print(table1)
         print("\n----------------------------------------------------------------------\n")
 

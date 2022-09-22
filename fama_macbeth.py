@@ -11,6 +11,7 @@ Empirical Asset Pricing: The Cross Section of Stock Returns. Bali, Engle, Murray
 
 from numpy.core.defchararray import add
 from statsmodels.tools.tools import add_constant
+from .adjust import newey_west_t
 
 from .portfolio_analysis import Bivariate
 
@@ -56,7 +57,7 @@ class Fama_macbeth_regress():
         # return grouped sample 返回被分类的样本组
         return groups_by_time
             
-    def cross_sectional_regress(self, add_constant=True, normalization=True):
+    def cross_sectional_regress(self, add_constant=True, normalization=True, **kwargs):
         '''
         The #1 step of Fama-Macbeth Regression Fama-Macbeth 回归第一步
         take the cross_sectional regress for each period 在每个时间段分别进行截面数据回归
@@ -128,9 +129,9 @@ class Fama_macbeth_regress():
             # sample number of each group
             n.append(r)
         
-        return params,tvalue,rsquare,adjrsq,n
+        return params, tvalue, rsquare, adjrsq, n
     
-    def time_series_average(self,**kwargs) :
+    def time_series_average(self, maxlag=12, **kwargs) :
         '''
         The #2 step of Fama-French regression Fama-French 回归第二步 
         Time series average for cross section regression  对截面数据在时间上取均值
@@ -143,7 +144,19 @@ class Fama_macbeth_regress():
         # the average of the regression coefficeint 参数均值
         self.coefficient_average = np.mean(self.result_cross[0], axis=0)
         # t_test for the regression coefficient 回归系数T检验
-        self.tvalue = sts.ttest_1samp(self.result_cross[0], 0.0, axis=0)[0]
+        if maxlag == 0.0:
+            self.tvalue = sts.ttest_1samp(self.result_cross[0], 0.0, axis=0)[0]
+        else:
+            r, c = np.shape(self.result_cross[0])
+            self.tvalue = np.zeros((c))
+
+            for i in range(c):
+                temp_result = self.result_cross[0][:, i]
+                temp_result = temp_result[~np.isnan(temp_result)]
+                temp_one = np.ones((len(temp_result), 1))
+                tvalue, pvalue = newey_west_t(y=temp_result, X=temp_one, J=maxlag, constant=False)
+                self.tvalue[i] = tvalue
+
         # the average of the R square R方均值
         self.rsquare_average = np.mean(self.result_cross[2])
         # the average of the adjust R square 调整R方均值

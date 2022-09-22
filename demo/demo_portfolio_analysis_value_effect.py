@@ -51,7 +51,7 @@ import numpy as np
 # select stocks whose size is among the up 30% stocks in each month and whose trading 
 # days are more than or equal to 10 days
 test_data_1 = return_company[(return_company['cap']==True) & (return_company['Ndaytrd']>=10)]
-test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'PE1A', 'Date_merge']].dropna()
+test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'PE1A', 'Date_merge', 'Mnshrtrd', 'Mnvaltrd']].dropna()
 test_data_1 = test_data_1[(test_data_1['Date_merge'] >= '2000-01-01') & (test_data_1['Date_merge'] <= '2019-12-01')]
 
 # Univariate Analysis
@@ -63,7 +63,56 @@ uni_1.print_summary()
 # correlation 
 uni_1.correlation(variables=np.array(test_data_1[['PE1A', 'emrwd']]), periodic=False)
 
-# Independent-sort Bivariate analysis
+# %% Test autocorrelation of factor momentum
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+fac_mom = uni_1.difference(uni_1.average_by_time())[-1, :]
+fac_acf = sm.tsa.stattools.acf(fac_mom, qstat=True, nlags=12)
+print(fac_acf)
+plt.plot(fac_acf[0])
+
+# %% build AR model
+ar = sm.tsa.arima.ARIMA(fac_mom, order=([6,8], 0, 0), trend='n')
+res = ar.fit()
+print(res.summary())
+
+pre_fac = res.predict()
+
+# %% Test the trading volume
+uni_1.summary_statistics(test_data_1[['Mnshrtrd', 'Mnvaltrd']], periodic=True)
+vol = uni_1.average_variable_period
+vol_1 = np.log(np.mean(vol[[0,9], 1, :], axis=0))
+vol_2 = np.mean(np.log(vol[[0,9], 1, :]), axis=0)
+vol_3 = np.mean(np.log(vol[[0,9], 2, :]), axis=0)
+
+vol_acf = sm.tsa.stattools.acf(vol_1, qstat=True, nlags=12)
+print(vol_acf)
+plt.plot(vol_acf[0])
+
+# %% build AR model
+ar_vol = sm.tsa.arima.ARIMA(vol_1, order=([1,3,6,7], 0, 0), trend='c')
+res_vol = ar_vol.fit()
+print(res_vol.summary())
+
+pre_vol_1 = res_vol.predict()
+
+# %% fit the fac_mom and vol_2
+model = sm.OLS(pre_fac, sm.add_constant(vol_1)).fit()
+print(model.summary())
+model_pre = sm.OLS(pre_fac, sm.add_constant(pre_vol_1)).fit()
+print(model_pre.summary())
+
+# %% build regression model
+resid_acf = sm.tsa.stattools.acf(model.resid, qstat=True, nlags=12)
+print(resid_acf)
+plt.plot(resid_acf[0])
+
+ar_resid = sm.tsa.arima.ARIMA(model.resid, order=[[6,8],0,0], trend='n')
+res_resid = ar_resid.fit()
+print(res_resid.summary())
+
+#%% Independent-sort Bivariate analysis
 bi_1 = Bivariate(np.array(test_data_1), number=4)
 bi_1.average_by_time()
 bi_1.summary_and_test()

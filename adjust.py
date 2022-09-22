@@ -98,7 +98,7 @@ def newey_west(y, X, J=None, **kwargs) :
 '''
 T test after adjustment of White
 '''
-def white_t(y, X, params=None, **kwargs) :
+def white_t(y, X, params=None, side='Two', **kwargs) :
     '''
     White t test based on White Variance
     '''
@@ -116,15 +116,18 @@ def white_t(y, X, params=None, **kwargs) :
         freedom = r - c - 1
     else :
         freedom = r - c
-        
-    p_value = 1- t.cdf(np.abs(t_value), freedom)
+    
+    if side == 'One':
+        p_value = 1- t.cdf(np.abs(t_value), freedom)
+    elif side == 'Two':
+        p_value = 2 * (1- t.cdf(np.abs(t_value), freedom))
     
     return t_value, p_value
 
 '''
 T test after adjustment of Newey West
 '''
-def newey_west_t(y, X, params=None, **kwargs) :
+def newey_west_t(y, X, params=None, side='Two', **kwargs) :
     '''
     Newey_West t test based on Newey West Variancce 
     '''
@@ -133,17 +136,24 @@ def newey_west_t(y, X, params=None, **kwargs) :
 
     diagnal = np.diagonal(newey_west(y, X, **kwargs))
     standard_error = diagnal**0.5
-    if params is None :
-        result = ols(y, X, **kwargs)
+    if params:
+        t_value = params / standard_error
+    else:
+        constant = kwargs['constant']
+        result = ols(y, X, constant=constant)
         params = result.params
-    t_value = params / standard_error
+        t_value = params / standard_error
+    
     r, c = np.shape(X)
     if kwargs['constant'] == True :
         freedom = r - c - 1
     else :
         freedom = r - c
     
-    p_value = 1- t.cdf(np.abs(t_value), freedom)
+    if side == 'One':
+        p_value = 1- t.cdf(np.abs(t_value), freedom)
+    elif side == 'Two':
+        p_value = 2 * (1- t.cdf(np.abs(t_value), freedom))
 
     return t_value, p_value
 

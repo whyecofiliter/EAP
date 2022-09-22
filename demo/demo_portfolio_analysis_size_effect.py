@@ -39,7 +39,7 @@ import numpy as np
 # days are more than or equal to 10 days
 test_data_1 = month_return[(month_return['cap']==True) & (month_return['Ndaytrd']>=10)]
 # construct data for univariate analysis
-test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'Time']].dropna()
+test_data_1 = test_data_1[['emrwd', 'Msmvttl', 'Time','Mnshrtrd', 'Mnvaltrd']].dropna()
 test_data_1 = test_data_1[(test_data_1['Time'] >= '2000-01-01') & (test_data_1['Time'] <= '2019-12-01')]
 
 # Univariate analysis
@@ -48,6 +48,57 @@ uni_1.average_by_time()
 uni_1.summary_and_test()
 uni_1.print_summary_by_time()
 uni_1.print_summary()
+
+# %%
+uni_1.summary_statistics(test_data_1[['Mnshrtrd', 'Mnvaltrd']], periodic=True)
+vol = uni_1.average_variable_period
+
+# %% Test autocorrelation of factor momentum
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+fac_mom = uni_1.difference(uni_1.average_by_time())[-1, :]
+fac_acf = sm.tsa.stattools.acf(fac_mom, qstat=True, nlags=12)
+print(fac_acf)
+plt.plot(fac_acf[0])
+
+# %% build AR model
+ar = sm.tsa.arima.ARIMA(fac_mom, order=([5,6,9], 0, 0), trend='n')
+res = ar.fit()
+print(res.summary())
+
+pre_fac = res.predict()
+
+# %% Test the trading volume
+vol_1 = np.log(np.mean(vol[[0,9], 1, :], axis=0))
+vol_2 = np.mean(np.log(vol[[0,9], 1, :]), axis=0)
+vol_3 = np.mean(np.log(vol[[0,9], 2, :]), axis=0)
+
+vol_acf = sm.tsa.stattools.acf(vol_1, qstat=True, nlags=12)
+print(vol_acf)
+plt.plot(vol_acf[0])
+
+# %% build AR model
+ar_vol = sm.tsa.arima.ARIMA(vol_1, order=([1,3,6,7], 0, 0), trend='c')
+res_vol = ar_vol.fit()
+print(res_vol.summary())
+
+pre_vol_1 = res_vol.predict()
+
+# %% fit the fac_mom and vol_2
+model = sm.OLS(pre_fac, sm.add_constant(vol_1)).fit()
+print(model.summary())
+model_pre = sm.OLS(pre_fac, sm.add_constant(pre_vol_1)).fit()
+print(model_pre.summary())
+
+# %% build regression model
+resid_acf = sm.tsa.stattools.acf(model.resid, qstat=True, nlags=12)
+print(resid_acf)
+plt.plot(resid_acf[0])
+
+ar_resid = sm.tsa.arima.ARIMA(model.resid, order=[[5,6,9],0,0], trend='n')
+res_resid = ar_resid.fit()
+print(res_resid.summary())
 
 # %% dataset 2
 # select stocks whose trading days are more than or equal to 10 days
@@ -91,6 +142,20 @@ uni_4.average_by_time()
 uni_4.summary_and_test()
 uni_4.print_summary_by_time()
 uni_4.print_summary()
+
+# %% Test autocorrelation of factor momentum
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+fac_mom = uni_4.difference(uni_4.average_by_time())[-1, :]
+fac_acf = sm.tsa.stattools.acf(fac_mom, qstat=True, nlags=12)
+print(fac_acf)
+plt.plot(fac_acf[0])
+
+# %% build AR model
+ar = sm.tsa.arima.ARIMA(fac_mom, order=([6,9], 0, 0), trend='n')
+res = ar.fit()
+print(res.summary())
 
 # %%
 # %% Persistence Analysis

@@ -8,14 +8,18 @@ which is divided into 4 steps
 4. present the result
 '''
 
+from asyncio import constants
 from calendar import c
 from msilib.schema import Error
+from sqlite3 import paramstyle
+from turtle import shape
 from unicodedata import decimal
 from unittest import expectedFailure
 
 from click import group
 from numpy import average, dtype
 from pyrsistent import v
+from regex import B
 from sklearn.model_selection import GroupShuffleSplit
 from typesentry import I
 
@@ -194,6 +198,7 @@ class Univariate(ptf_analysis):
         average of the groups at each time point
         '''
         import numpy as np
+
         # get the sample groups by time 得到按时间分组的样本
         groups_time = self.divide_by_time(self.sample)
         # generate table of  average return for group and time 生成组和时间的表格
@@ -210,9 +215,15 @@ class Univariate(ptf_analysis):
             label = super().distribute(group[:, 1], breakpoint)
             # for each group in each time, calculate the average future return
             if self._weight == False:
-                average_group_time[:, i] = super().average(group[:, 0], label[:, 0]).reshape((self.number+1))
+                try:
+                    average_group_time[:, i] = super().average(group[:, 0], label[:, 0]).reshape((self.number+1))
+                except:
+                    average_group_time[:, i] = np.full([self.number+1], np.nan)
             elif self._weight == True:
-                average_group_time[:, i] = super().average(group[:, 0], label[:, 0], weight=group[:, 3]).reshape((self.number+1))
+                try:
+                    average_group_time[:, i] = super().average(group[:, 0], label[:, 0], weight=group[:, 3]).reshape((self.number+1))
+                except:
+                    average_group_time[:, i] = np.full([self.number+1], np.nan)
             else: return IOError
 
             self._label.append(label[:, 0])
@@ -233,6 +244,7 @@ class Univariate(ptf_analysis):
         diff = average_group[-1, :] - average_group[0, :]
         diff = diff.reshape((1, len(diff)))        
         result = np.append(average_group, diff, axis=0)
+        self.diff = diff
 
         return result
 
@@ -242,10 +254,24 @@ class Univariate(ptf_analysis):
         '''
         import numpy as np
         from scipy import stats
+        from .adjust import newey_west_t
         
         self.result = self.difference(self.average_by_time())
-        self.average = np.mean(self.result, axis=1)
-        self.ttest = stats.ttest_1samp(self.result, 0.0, axis=1)
+        r, c = np.shape(self.result)
+        self.average = np.nanmean(self.result, axis=1)
+        if self.maxlag == 0 :
+            self.ttest = stats.ttest_1samp(self.result, 0.0, axis=1, nan_policy='omit')
+        else:
+            self.ttest = np.zeros((2, r))
+
+            for i in range(r):
+                temp_result = self.result[i, :]
+                temp_result = temp_result[~np.isnan(temp_result)]
+                temp_one = np.ones((len(temp_result), 1))
+                tvalue, pvalue = newey_west_t(y=temp_result, X=temp_one, J=self.maxlag, constant=False)
+                self.ttest[0, i] = tvalue
+                self.ttest[1, i] = pvalue
+
         # if there is a facotr adjustment, then normal return result plus the anomaly result
 #        if self.factor is not None  :
 #            self.alpha, self.alpha_tvalue = self.factor_adjustment(self.result)
@@ -269,34 +295,56 @@ class Univariate(ptf_analysis):
         '''
         import statsmodels.api as sm
         import numpy as np
+        import pandas as pd
         
-        self._factor = factor
+        if type(factor).__name__ == 'DataFrame':
+            self._factor = factor
+        elif type(factor).__name__ == 'ndarray':
+            self._factor = pd.DataFrame(factor)
 
         # take the inverse of the Table with difference
         # Rows: Time
         # Columns: Groups Return
         table = self.result.T
         row, col = np.shape(table)
+        row_fac, col_fac = np.shape(self._factor)
         # generate anomaly: alpha 
         # generate tvalues: ttest
         alpha = np.zeros((col, 1))
         ttest = np.zeros((col, 1))
-        
+        beta = np.zeros((col, col_fac))
+        beta_ttest = np.zeros((col, col_fac))
+        r2 = np.zeros((col, 1))
 
         # factor adjusment
         for i in range(col):
-            model = sm.OLS(table[:,i], sm.add_constant(factor))
+            time = np.sort(np.unique(self.sample[:, 2]))
+            temp_result = pd.DataFrame(table[:, i], index=time)
+            temp_result.index = pd.to_datetime(temp_result.index)
+            temp_mat = pd.merge(temp_result, factor, left_index=True, right_index=True).dropna()
+            #model = sm.OLS(table[:,i], sm.add_constant(factor))
             # fit the model with the Newey-West Adjusment
             # lags=maxlag
+            #re = model.fit()
+            model = sm.OLS(temp_mat.iloc[:, 0], sm.add_constant(temp_mat.iloc[:, 1:]))
             re = model.fit()
+
             re = re.get_robustcov_results(cov_type='HAC', maxlags=self.maxlag, use_correction=True)
             #print(re.summary())
             # get anomaly and tvalues
             alpha[i] = re.params[0]
             ttest[i] = re.tvalues[0]
+            beta[i, :] = re.params[1:]
+            beta_ttest[i, :] = re.tvalues[1:]
+            r2[i] = re.rsquared
         
         self.alpha = alpha
         self.alpha_tvalue = ttest
+        self.beta = beta
+        self.beta_ttest = beta_ttest
+        self.r2 = r2
+        self.params = re.params
+
         return alpha, ttest    
     
     def summary_statistics(self, variables=None, periodic=False):
@@ -346,7 +394,7 @@ class Univariate(ptf_analysis):
             if type(variables).__name__ == 'DataFrame' or type(variables).__name__ == 'Series':
                 if type(variables).__name__ == 'DataFrame':
                     variables_col = list(variables.columns)
-                elif type(variables).__namr__ == 'Series':
+                elif type(variables).__name__ == 'Series':
                     variables_col = list(variables.name)
 
                 for j in range(c):
@@ -358,7 +406,9 @@ class Univariate(ptf_analysis):
                 for j in range(c):
                     table.add_row(['Variable'+str(j+1)]+[' ' for i in range(self.number+1)])
                     for i in range(len(self._time)):
-                        table.add_row([self._time[i]] + list(np.around(average_variable_period[:, j+1, i], decimals=5)))            
+                        table.add_row([self._time[i]] + list(np.around(average_variable_period[:, j+1, i], decimals=5)))  
+
+            self.average_variable_period = average_variable_period                  
                  
         elif periodic == False:
             average_variable = np.mean(average_variable_period, axis=2)
@@ -379,6 +429,8 @@ class Univariate(ptf_analysis):
             elif type(variables).__name__ == 'ndarray' :
                 for j in range(c):
                     table.add_row(['Variable'+str(j+1)] + list(np.around(average_variable[:, j+1], decimals=5)))
+
+            self.average_variable = average_variable        
         
         else: 
             return IOError
@@ -574,9 +626,12 @@ class Univariate(ptf_analysis):
             for j in range(c):
                 for k in range(c):
                     if k > j :
-                        corr.append(np.around(sts.pearsonr(temp_variables[:, j], temp_variables[:, k])[0], decimals=5))
-                        corr_spearman.append(np.around(sts.spearmanr(temp_variables[:, j], temp_variables[:, k])[0], decimals=5))
-            
+                        try:
+                            corr.append(np.around(sts.pearsonr(temp_variables[:, j], temp_variables[:, k])[0], decimals=5))
+                            corr_spearman.append(np.around(sts.spearmanr(temp_variables[:, j], temp_variables[:, k])[0], decimals=5))
+                        except:
+                            corr.append(np.nan)
+                            corr_spearman.append(np.nan)
             corr_maxtrix[i, :] = corr
             corr_maxtrix_spearman[i, :] = corr_spearman
             
@@ -585,8 +640,8 @@ class Univariate(ptf_analysis):
                 table_spear.add_row([str(self._time[i]) + ' '] + corr_spearman)
                 
         if periodic == False:
-            table.add_rows([['Pearson'] + list(np.around(np.mean(corr_maxtrix, axis=0), decimals=5))])
-            table.add_row(['Spearman'] + list(np.around(np.mean(corr_maxtrix_spearman, axis=0), decimals=5)))
+            table.add_rows([['Pearson'] + list(np.around(np.nanmean(corr_maxtrix, axis=0), decimals=5))])
+            table.add_row(['Spearman'] + list(np.around(np.nanmean(corr_maxtrix_spearman, axis=0), decimals=5)))
             print(table)
 
             if export == True :
@@ -656,12 +711,13 @@ class Univariate(ptf_analysis):
             
             return df
         
-    def print_summary(self, export=False):
+    def print_summary(self, explicit = False, export=False):
         '''
         print summary
         '''
         import numpy as np
         from prettytable import PrettyTable
+
         # generate Table if no factor
         table = PrettyTable()
         table.add_column('Group', ['Average', 'T-Test'])
@@ -671,11 +727,48 @@ class Univariate(ptf_analysis):
         
         if self._factor is not None :
             table = PrettyTable()
-            table.add_column('Group', ['Average', 'T-Test', 'Alpha', 'Alpha-T'])
-            for i in range(self.number+1):
-                table.add_column(str(i+1), np.around([self.average[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]], decimals=3))
-            table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]], decimals=3))
+            fac_name = list()
+            row_fac, col_fac = np.shape(self._factor)
+            if type(self._factor).__name__ == 'DataFrame':
+                for i in range(len(self._factor.columns)):
+                    fac_name.append(self._factor.columns[i])
+                    fac_name.append('T-Test')                
+            else: 
+                for i in range(col_fac):
+                    fac_name.append('factor'+str(i+1))
+                    fac_name.append('T-Test')
+            fac_name.append('R2')
+
+            if explicit == False:
+                table.add_column('Group', ['Average', 'T-Test', 'Alpha', 'Alpha-T'])
+            elif explicit == True:
+                temp_name = ['Average', 'T-Test', 'Alpha', 'Alpha-T']+fac_name
+                table.add_column('Group', temp_name)
             
+            for i in range(self.number+1):
+                fac_re = list()
+                for j in range(col_fac):
+                    fac_re.append(self.beta[i][j])
+                    fac_re.append(self.beta_ttest[i][j])
+                fac_re.append(self.r2[i][0])
+
+                if explicit == False:
+                    table.add_column(str(i+1), np.around([self.average[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]], decimals=3))
+                elif explicit == True:
+                    temp_re = [self.average[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]] + fac_re
+                    table.add_column(str(i+1), np.around(temp_re, decimals=3))
+            
+            fac_re = list()
+            for j in range(col_fac):
+                fac_re.append(self.beta[-1][j])
+                fac_re.append(self.beta_ttest[-1][j])
+            fac_re.append(self.r2[-1][0])
+
+            if explicit == False:
+                table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]], decimals=3))
+            elif explicit == True:
+                table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]] + fac_re, decimals=3))
+
         np.set_printoptions(formatter={'float':'{:0.3f}'.format})
         print(table)
 
@@ -752,6 +845,7 @@ class Bivariate(ptf_analysis):
         average of the groups at each time point
         '''
         import numpy as np
+
         # get the sample groups by time 得到按时间分组的样本
         groups_time = self.divide_by_time()
         # generate table of  average return for group and time 生成组和时间的表格
@@ -785,14 +879,26 @@ class Bivariate(ptf_analysis):
 
             if self.perc_sign == False:
                 if self.weight == False:
-                    average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi').reshape((self.number+1, self.number+1))
+                    try:
+                        average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi').reshape((self.number+1, self.number+1))
+                    except:
+                        average_group_time[:,:,i] = np.full([self.number+1, self.number+1], np.nan)
                 else:
-                    average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi', weight=group[:, -1]).reshape((self.number+1, self.number+1))
+                    try:
+                        average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi', weight=group[:, -1]).reshape((self.number+1, self.number+1))
+                    except:
+                        average_group_time[:,:,i] = np.full([self.number+1, self.number+1], np.nan)
             elif self.perc_sign == True:
                 if self.weight == False:
-                    average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi').reshape((len(self.perc_row)-1, len(self.perc_col)-1))
+                    try:
+                        average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi').reshape((len(self.perc_row)-1, len(self.perc_col)-1))
+                    except:
+                        average_group_time[:,:,i] = np.full([len(self.perc_row)-1, len(self.perc_col)-1], np.nan)
                 else:
-                    average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi', weight=group[:, -1]).reshape((len(self.perc_row)-1, len(self.perc_col)-1))
+                    try:
+                        average_group_time[:,:,i] = super().average(group[:, 0], label, cond='bi', weight=group[:, -1]).reshape((len(self.perc_row)-1, len(self.perc_col)-1))
+                    except:
+                        average_group_time[:,:,i] = np.full([len(self.perc_row)-1, len(self.perc_col)-1], np.nan)
 
         # return the Table
         # Rows: groups in each time
@@ -828,30 +934,50 @@ class Bivariate(ptf_analysis):
         '''
         import statsmodels.api as sm
         import numpy as np
+        import pandas as pd
         
         self._factor = factor
         # result: r * c * n 
         r, c, n = np.shape(self.result)
+        row_fac, col_fac = np.shape(self._factor)
         # generate anomaly: alpha 
         # generate tvalues: ttest
         alpha = np.zeros((r, c))
         ttest = np.zeros((r, c))
-        
+        time = np.sort(np.unique(self.sample[:, 3]))
+        beta = np.zeros((r, c, col_fac))
+        beta_test = np.zeros((r, c, col_fac))
+        r2 = np.zeros((r, c))
+
         # factor adjusment
         for i in range(r):
             for j in range(c):
-                model = sm.OLS(self.result[i, j, :], sm.add_constant(factor))
+                temp_result = pd.DataFrame(self.result[i, j, :], index=time)
+                temp_result.index = pd.to_datetime(temp_result.index)
+                temp_mat = pd.merge(temp_result, factor, left_index=True, right_index=True).dropna()
+                #model = sm.OLS(self.result[i, j, :], sm.add_constant(factor))
                 # fit the model with the Newey-West Adjusment
                 # lags=maxlag
+                #re = model.fit()
+                print(temp_mat)
+                model = sm.OLS(temp_mat.iloc[:, 0], sm.add_constant(temp_mat.iloc[:, 1:]))
                 re = model.fit()
+
                 re = re.get_robustcov_results(cov_type='HAC', maxlags=self.maxlag, use_correction=True)
                 #print(re.summary())
                 # get anomaly and tvalues
                 alpha[i, j] = re.params[0]
                 ttest[i, j] = re.tvalues[0]
+                beta[i, j, :] = re.params[1:]
+                beta_test[i, j, :] = re.tvalues[1:]
+                r2[i, j] = re.rsquared
         
         self.alpha = alpha
         self.alpha_tvalue = ttest
+        self.beta = beta
+        self.beta_test = beta_test
+        self.r2 = r2
+
         return alpha, ttest    
     
     def summary_and_test(self, **kwargs) :
@@ -860,16 +986,44 @@ class Bivariate(ptf_analysis):
         '''
         import numpy as np
         from scipy import stats
+        from .adjust import newey_west_t
         
         self.result = self.difference(self.average_by_time(**kwargs))
-        self.average = np.mean(self.result, axis=2)
-        self.ttest = stats.ttest_1samp(self.result, 0.0, axis=2)
+        r, c, z = np.shape(self.result)
+        self.average = np.nanmean(self.result, axis=2)
+        
+        if self.maxlag == 0 :
+            self.ttest = stats.ttest_1samp(self.result, 0.0, axis=2, nan_policy='omit')
+        else:
+            self.ttest = np.zeros((2, r, c))
+
+            for i in range(r):
+                for j in range(c):
+                    temp_result = self.result[i, j, :]
+                    temp_result = temp_result[~np.isnan(temp_result)]
+                    temp_one = np.ones((len(temp_result), 1))
+                    tvalue, pvalue = newey_west_t(y=temp_result, X=temp_one, J=self.maxlag, constant=False)
+                    self.ttest[0, i, j] = tvalue
+                    self.ttest[1, i, j] = pvalue
+#        if self.maxlag == 0 :
+#            self.ttest = stats.ttest_1samp(self.result, 0.0, axis=1, nan_policy='omit')
+#        else:
+#            self.ttest = np.zeros((2, r))
+
+#            for i in range(r):
+#                temp_result = self.result[i, :]
+#                temp_result = temp_result[~np.isnan(temp_result)]
+#                temp_one = np.ones((len(temp_result), 1))
+#                tvalue, pvalue = newey_west_t(y=temp_result, X=temp_one, J=self.maxlag, constant=False)
+#                self.ttest[0, i] = tvalue
+#                self.ttest[1, i] = pvalue
+
         # if there is a facotr adjustment, then normal return result plus the anomaly result
 #        if self.factor is not None  :
 #            self.alpha, self.alpha_tvalue = self.factor_adjustment(self.result)
 #            return self.average, self.ttest, self.alpha, self.alpha_tvalue
 
-        return self.average,self.ttest
+        return self.average, self.ttest
 
     def fit(self, **kwargs):
         self.summary_and_test(**kwargs)
@@ -912,7 +1066,7 @@ class Bivariate(ptf_analysis):
             
             return df
         
-    def print_summary(self, export=False):
+    def print_summary(self, explicit=False, export=False):
         '''
         print summary
         '''
@@ -940,22 +1094,30 @@ class Bivariate(ptf_analysis):
                 for j in range(self.number+2):
                     temp.append(np.around(self.average[i, j], decimals=3))
                     temp_tvalue.append(np.around(self.ttest[0][i, j], decimals=3))
+
                 table.add_row(temp)
                 table.add_row(temp_tvalue)
 
         elif self._factor is not None :
             table = PrettyTable()
+            row_fac, col_fac = np.shape(self._factor)
             if self._sample_type == 'ndarray':
                 table.field_names = ['Group'] + [i+1 for i in range(self.number+1)] + ['Diff']
             elif self._sample_type == 'DataFrame':
                 table.field_names = ['Group'] + [self._columns[2] + str(i+1) for i in range(self.number+1)] + ['Diff']
-            
+
+            if type(self._factor).__name__ == 'DataFrame':
+                fac_name = self._factor.columns
+            elif type(self._factor).__name__ == 'ndarray':
+                fac_name = ['factor' + str(i+1) for i in range(col_fac)]
+
             for i in range(self.number+2):
                 if i == self.number+1:
                     temp = ['Diff']
                     temp_tvalue = [' ']
                     temp_fac = ['alpha']
                     temp_fac_tvalue = [' ']
+                    temp_r2 = ['R2']
                 else :
                     if self._sample_type == 'ndarray':
                         temp = [str(i+1)]
@@ -964,16 +1126,34 @@ class Bivariate(ptf_analysis):
                     temp_tvalue = [' ']
                     temp_fac = ['alpha']
                     temp_fac_tvalue = [' ']
+                    temp_r2 = ['R2']
                 for j in range(self.number+2):
                     temp.append(np.around(self.average[i, j], decimals=3))
                     temp_tvalue.append(np.around(self.ttest[0][i, j], decimals=3))
                     temp_fac.append(np.around(self.alpha[i, j], decimals=3))
                     temp_fac_tvalue.append(np.around(self.alpha_tvalue[i, j], decimals=3))
+                    temp_r2.append(np.around(self.r2[i, j], decimals=3))
+
                 table.add_row(temp)
                 table.add_row(temp_tvalue)
                 table.add_row(temp_fac)
                 table.add_row(temp_fac_tvalue)
-            
+
+                if explicit == True:
+                    for k in range(col_fac):
+                        temp_fac_beta = [fac_name[k]]
+                        temp_fac_betatvalue = ['t-value']
+                        temp_blank = [' ']
+                        for j in range(self.number+2):
+                            temp_fac_beta.append(np.around(self.beta[i, j, k], decimals=3))
+                            temp_fac_betatvalue.append(np.around(self.beta_test[i, j, k], decimals=3))
+                            temp_blank.append(' ')
+                    
+                        table.add_row(temp_fac_beta)
+                        table.add_row(temp_fac_betatvalue)
+                    table.add_row(temp_r2)
+                    table.add_row(temp_blank)
+
         np.set_printoptions(formatter={'float':'{:0.3f}'.format})
         print(table)
 
@@ -1083,18 +1263,245 @@ class Persistence():
             
             return df
 
+class Tangency_portfolio():
+    '''
+    This class calculate the tangency portfolio
+    The related content can be found in Financial Asset Pricing Theory by Munk(2010).
+    '''
+    def __init__(self, rf, mu, cov_mat):
+        '''
+        input : 
+            rf (float): risk free rate
+            mu (array or Series): stock rate of return
+            cov_mat (matrix): covariance matrix of stock rate of return 
+        '''
+        import numpy as np
+
+        self.rf = rf
+        if type(mu).__name__ == 'Series':
+            self.mu = np.array(mu)
+            self.asset_name = list(mu.index)
+        else: 
+            self.mu = mu
+            self.asset_name = None
+        self.mu = np.reshape(self.mu, (len(self.mu), 1))
+        self.cov_mat = np.mat(cov_mat)
+
+    def _portfolio_weight(self):
+        '''
+        calculate the portfolio weight in tangency portfolio
+        output : 
+            weight (vector): the portfolio weight in tangency portfolio
+        '''
+        import numpy as np
+        from numpy.linalg import inv
+        
+        excess_ret = np.mat((self.mu - self.rf))
+        self.weight = inv(self.cov_mat).dot(excess_ret)/np.sum(inv(self.cov_mat).dot(excess_ret))
+
+        return self.weight
+    
+    def _sharpe_ratio(self):
+        '''
+        calculate the Sharpe ratio of the tangency portfolio
+        output :
+            sr (float): the Sharpe ratio of the tangency portoflio
+        '''
+        import numpy as np
+        
+        sigma = (self.weight.T.dot(self.cov_mat).dot(self.weight))[0,0]
+        sr = (self.weight.T.dot(self.mu)-self.rf)/sigma**0.5
+
+        return sr[0, 0]
+
+    def fit(self):
+        '''
+        this function run the portfolio_weight, sharpe_ratio
+        '''
+
+        return self._portfolio_weight(), self._sharpe_ratio()
+
+    def print(self):
+        '''
+        this function print the result
+        '''
+        from prettytable import PrettyTable 
+        import numpy as np
+
+        table = PrettyTable()
+        if self.asset_name != None:
+            table.field_names = ['Weight'] + self.asset_name
+        else:
+            table.field_names = ['Weight'] + ['asset' + str(i+1) for i in range(len(self.weight))]
+        
+        table.add_row([' '] + [np.around(j[0, 0], 5) for j in self.weight])
+
+        print(table)
+
+class Spanning_test():
+    '''
+    This class is designed for spanning test    
+    '''
+    def __init__(self, Rn, Rk):
+        '''
+        input:
+            Rn (ndarray): T*N test assets. T: time length, N: asset numbers
+            Rk (ndarray): T*K baseline assets. T: time length, K: assets numbers
+        '''
+        import numpy as np
+
+        if type(Rn).__name__ == 'DataFrame':
+            self.Rn = np.array(Rn)
+            self.rn, self.cn =np.shape(Rn)
+            self.Rn_name = Rn.columns
+        elif type(Rn).__name__ == 'Series':
+            self.Rn = np.array(Rn)
+            self.rn = len(Rn)
+            self.cn = 1
+            self.Rn_name = Rn.name
+        else :            
+            self.Rn = Rn
+            self.Rn_name = None
+            try :
+                self.rn, self.cn =np.shape(Rn)
+            except:
+                self.rn = len(Rn)
+                self.cn = 1
+        
+        if type(Rk).__name__ == 'DataFrame':
+            self.Rk = np.array(Rk)
+            self.rk, self.ck =np.shape(Rk)
+        elif type(Rk).__name__ == 'Series':
+            self.Rk = np.array(Rk)
+            self.rk = len(Rk)
+            self.ck = 1
+        else:            
+            self.Rk = Rk
+            try :
+                self.rk, self.ck =np.shape(Rk)
+            except:
+                self.rk = len(Rk)
+                self.ck = 1
+     
+    def _cov(self):
+        '''
+        This function calculates the covariance
+        '''
+        import numpy as np
+
+        self.V_11 = np.correlate(self.Rn)
+        self.V_12 = np.correlate(self.Rn, self.Rk)
+        self.V_22 = np.correlate(self.Rk)
 
 
+    def _regress(self):
+        '''
+        This function makes regression
+        '''
+        import numpy as np
+        import statsmodels.api as sm
+        from numpy.linalg import inv, det, eig
+        
+        vecn_one = np.ones((self.cn, 1))
+        veck_one = np.ones((self.ck, 1))
+        alpha = np.zeros((self.cn, 1))
+        beta = np.zeros((self.cn, self.ck))
+        B = np.zeros((self.ck+1, self.cn))
+        residue = np.zeros((self.rn, self.cn))
+        X = sm.add_constant(self.Rk)
+        pvalues = np.zeros((self.ck+1, self.cn))
 
+        for i in range(self.cn):
+            model = sm.OLS(self.Rn[:, i], sm.add_constant(self.Rk)).fit()
+            alpha[i, :] = model.params[0]
+            beta[i, :] = model.params[1:]
+            B[:, i] = model.params
+            residue[:, i] = model.resid
+            pvalues[:, i] = model.pvalues
 
-        
-        
+        delta = vecn_one - beta.dot(veck_one)
+        sigma = residue.T.dot(residue) / self.rn
 
-        
-        
-        
-        
+        A = np.block([
+            [1, np.zeros((1, self.ck))],
+            [0, -np.ones((1, self.ck))]
+        ])
+        C = np.block([
+            [np.zeros((1, self.cn))],
+            [np.ones((1, self.cn))]
+        ])
 
+        theta = np.mat(A).dot(B) + C
+        G = self.rn * np.mat(A).dot(inv(X.T.dot(X))).dot(np.mat(A).T)
+        H = theta.dot(inv(sigma)).dot(theta.T)
+        U = 1 / det(np.identity(2) + H.dot(inv(G)))
+        eigen, eigenvec = eig(H.dot(inv(G)))
+        eigen1 = eigen[0]
+        eigen2 = eigen[1]
 
+        self.alpha = alpha
+        self.delta = delta
+        self.pvalues = pvalues
+
+        return eigen1, eigen2, U
+
+    def _build_statistics(self):
+        '''
+        this function build three statistics: 
+        Likelihood Ratio: LR, 
+        Wald test : W, 
+        Lagrangianian test: LM.
+        '''
+        import numpy as np
+        from scipy import stats
         
+        eigen1, eigen2, U = self._regress()
+        LR = self.rn * np.log((1 + eigen1) * (1 + eigen2))
+        W = self.rn * (eigen1 + eigen2)
+        LM = self.rn * (eigen1 / (1 + eigen1) + eigen2 / (1 + eigen2))
         
+        perc = stats.chi2.ppf([0.9, 0.95, 0.99], df=2*self.cn)
+        chi_LR = 1.0 - stats.chi2.cdf(LR, df=2*self.cn)
+        chi_W = 1.0 - stats.chi2.cdf(W, df=2*self.cn)
+        chi_LM = 1.0 - stats.chi2.cdf(LM, df=2*self.cn)
+        
+        if self.cn > 1: 
+            LR_F = (1 / U ** 0.5 - 1) * (self.rn - self.ck - self.cn) / self.cn
+            perc_F = stats.f.ppf([0.9, 0.95, 0.99], 2 * self.cn, 2 * (self.rn-self.ck-self.cn))
+            f_LR = 1 - stats.f.cdf(LR_F, 2 * self.cn, 2 * (self.rn - self.ck - self.cn))
+        elif self.cn == 1:
+            LR_F = (1 / U - 1) * (self.rn - self.ck - self.cn) / 2
+            perc_F = stats.f.ppf([0.9, 0.95, 0.99], 2 * self.cn, self.rn - self.ck - 1)
+            f_LR = 1 - stats.f.cdf(LR_F, 2 * self.cn, self.rn - self.ck - 1)
+        
+        return perc, perc_F, [LR, chi_LR], [W, chi_W], [LM, chi_LM], [LR_F, f_LR]
+    
+    def fit(self):
+        perc, perc_F, [LR, chi_LR], [W, chi_W], [LM, chi_LM], [LR_F, f_LR] = self._build_statistics()
+        self.perc = perc
+        self.perc_F = perc_F
+        self.LR = LR
+        self.chi_LR = chi_LR
+        self.W = W
+        self.chi_W = chi_W
+        self.LM = LM
+        self.chi_LM = chi_LM
+        self.LR_F = LR_F
+        self.f_LR = f_LR
+        return perc, perc_F, [LR, chi_LR], [W, chi_W], [LM, chi_LM], [LR_F, f_LR]
+    
+    def summary(self):
+        '''
+        print the result
+        '''
+        from prettytable import PrettyTable
+        import numpy as np
+
+        table = PrettyTable()
+        table.field_names = ['asset', 'alpha', 'p-value', 'delta', 'F-test', 'p-value-F', 'LR', 'p-value-LR', 'W', 'p-value-W', 'LM', 'p-value-LM', 'T', 'N', 'K']
+        if self.Rn_name == None:
+            for i in range(self.cn):            
+                table.add_row(['asset'+str(i), self.alpha[i, 0], self.pvalues[0, i], self.delta[i, 0], self.LR_F, self.f_LR, self.LR, self.chi_LR, self.W, self.chi_W, self.LM, self.chi_LM, self.rn, self.cn, self.ck])
+        
+        table.float_format = '.5'
+        print(table)
