@@ -1,25 +1,34 @@
 '''
 Time Frenquency Pricing
+This module is designed for time frequency asset pricing model, 
+including Fourier Transform based method and Wavelet based method.
 '''
 
 class wavelet():
+    '''
+    This class is designed for decomposing the series using wavelet method, 
+    basing on the package  pywt.
+    '''
     def __init__(self, series):
+        '''
+        input:
+            series (array) : the series to be decomposed.
+        '''
         import numpy as np
 
         self.series = np.reshape(series, (len(series)))
 
     def _decompose(self, wave, mode, level=None):
         '''
-        input : 
-            series : time series
-            wave : wavelet family
-            level : wave level 
-            mode : single or multi scales
+        This function is designed for decomposing the series using given wavelet family, mode and level.
+        input :
+            wave (str) : The chosen wavelet family, which is the same in pywt.
+            mode (str) : Choose multiscale or single scale. 'multi' denotes multiscale. 'single' denotes single scale.
+            level (int) : the level of multiscale. If 'multi' is chosen, it must be set.
 
-        output : 
-
+        output :
+            wave_dec (list): The decomposed details including (CA, CN, CN-1,..., C1).
         '''
-        
         import pywt
 
         if mode == 'multi':
@@ -37,6 +46,10 @@ class wavelet():
     
     def _pick_details(self):
         '''
+        This function is designed for picking the details of decomposed series at different level.
+
+        output:
+            pick_series (list): pick the detail series at each level. Each elements in list only contains the details at that level. 
         '''
         import numpy as np
 
@@ -55,11 +68,12 @@ class wavelet():
 
     def _rebuild(self, mode='constant'):
         '''
-        input :
-            series_dec : decomposed time series
-            wave : wavelet family
-        output :
-            wave_rec (list) : recomposed time series
+        This function is designed for rebuilding the detail series from the picked series at each level.
+        input:
+            mode (str): The recomposed method.
+
+        output:
+            wave_rec (list): The recomposed series from the details at each level.
         '''
         import pywt
         import numpy as np
@@ -73,6 +87,17 @@ class wavelet():
             return wave_rec
 
     def fit(self, wave, mode, level, output=False):
+        '''
+        This function is designed for fitting the model.
+        input :
+            wave (str) : The chosen wavelet family, which is the same in pywt.
+            mode (str) : Choose multiscale or single scale. 'multi' denotes multiscale. 'single' denotes single scale.
+            level (int) : The level of multiscale. If 'multi' is chosen, it must be set.
+            output (boolean): whether output the result. The **DEFAULT** is False.
+
+        output :
+            wave_rec (list): The recomposed series from the details at each level, if output is True.
+        '''
         self._decompose(wave, mode, level)
         if output == True:
             return self._rebuild()
@@ -83,7 +108,15 @@ class wavelet():
 Wavelet pricing
 '''
 class wavelet_pricing():
+    '''
+    This module is designed for wavelet pricing model.
+    '''
     def __init__(self, rets, factors):
+        '''
+        input :
+            rets (ndarray/Series/DataFrame): The dependent variables of the return.
+            factors (ndarray/Series/DataFrame): The independent variables of factors.
+        '''
         import numpy as np
 
         if type(rets).__name__ == 'ndarray':
@@ -97,6 +130,15 @@ class wavelet_pricing():
             self.factors = np.array(factors) 
 
     def wavelet_dec_rec(self, **kwargs):
+        '''
+        This function is designed for wavelet decomposing and recomposing.
+        input :
+            kwargs : the kwargs include wave family, mode, and level of wavelet.
+        
+        output :
+            rets_dec_s (list): The recomposed detail series of returns (rets).
+            factors_dec_s (list): The recomposed detail series of factors (factors).
+        '''
         import numpy as np
         
         try:
@@ -124,6 +166,14 @@ class wavelet_pricing():
         return rets_dec_s, factors_dec_s
 
     def wavelet_regression(self, **kwargs):
+        '''
+        This function is designed for OLS regression of detail series between return and factors at each level.
+        input :
+            kwargs : the kwargs include 'constant': whether the regression includes the constant.
+
+        output :
+            regress (list): the regression results of OLS in package **statsmodels**.
+        '''
         import statsmodels.api as sm
         from statsmodels.regression.rolling import RollingOLS
         import numpy as np
@@ -195,6 +245,12 @@ class wavelet_pricing():
     def summary(self, export=False):
         '''
         Summarize the result
+        This function is designed for printing the summary.
+        input :
+            export (boolean): whether export the summary table. The **DEFAULT** is False.
+
+        output :
+            df (DataFrame): if export is True, then return the summary table. 
         '''
         import numpy as np
         from prettytable import PrettyTable

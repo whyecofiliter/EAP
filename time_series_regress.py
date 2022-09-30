@@ -3,15 +3,19 @@ Time Series Analysis 时间序列分析
 
 '''
 
-from ast import Constant
-from distutils.log import ERROR
-from random import sample
-from numpy.core.defchararray import add
-from statsmodels.multivariate import factor
-
-
 class TS_regress() :
+    '''
+    This class is designed for time series regression, 
+        r_{i,t} = \beta_if_t + \epsilon_{i,t}
+    to obtain the beta for each asset.
+    '''
     def __init__(self, list_y, factor) :
+        '''
+        This function initializes the object.
+        input :
+            list_y (list/DataFrame): The return matrix with i rows and t columns.
+            factor (ndarray or DataFrame): The factor risk premium return series.
+        '''
         import numpy as np
 
         if type(list_y).__name__ == 'DataFrame':
@@ -21,7 +25,7 @@ class TS_regress() :
             self._name_y = None
             self.list_y = list_y
         else:
-            return ERROR
+            raise IOError
         
         if type(factor).__name__ == 'DataFrame':
             self._name_factor = list(factor.columns)
@@ -30,9 +34,33 @@ class TS_regress() :
             self._name_factor = None
             self.factor = factor
         else:
-            return ERROR
+            raise IOError
 
     def ts_regress(self, newey_west=True, **kwargs) :
+        '''
+        This function is for conducting the time series regression.
+        input :
+            newey_west  (boolean): conduct the newey_west adjustment or not.
+
+        output :
+            self.alpha (list): The regression alpha.
+            self.e_mat (ndarray): The error matrix.
+        
+        Example:
+        from statsmodels.base.model import Model
+        from statsmodels.tools.tools import add_constant
+        from EAP.time_series_regress import TS_regress
+
+        X = np.random.normal(loc=0.0, scale=1.0, size=(2000,10))
+        y_list = []
+        for i in range(10) :
+            b = np.random.uniform(low=0.1, high=1.1, size=(10,1))
+            e = np.random.normal(loc=0.0, scale=1.0, size=(2000,1))
+            y = X.dot(b) + e 
+            y_list.append(y)
+
+        re = TS_regress(y_list, X)
+        '''
         import numpy as np
         from statsmodels.api import OLS
         from statsmodels.api import add_constant
@@ -80,6 +108,7 @@ class TS_regress() :
     def summary(self) : 
         '''
         Summary 总结
+        This function summarize the result, including the GRS test.
         '''
         import prettytable as pt
         import numpy as np
@@ -111,6 +140,10 @@ class TS_regress() :
     def grs(self) :
         '''
         GRS test GRS检验
+        This function conducts the GRS test.
+        output :
+            grs_stats (list):* The GRS statistics.
+            p_value (list):* The p_value.
         '''
         import numpy as np
         from numpy.linalg import inv

@@ -8,13 +8,7 @@ For more academic reference:
 Empirical Asset Pricing: The Cross Section of Stock Returns. Bali, Engle, Murray. 2016.
 '''
 
-
-from numpy.core.defchararray import add
-from statsmodels.tools.tools import add_constant
 from .adjust import newey_west_t
-
-from .portfolio_analysis import Bivariate
-
 
 class Fama_macbeth_regress():
     '''
@@ -23,11 +17,12 @@ class Fama_macbeth_regress():
     '''
     def __init__(self, sample):
         '''
-        input: sample: data used for analysis 用于回归数据
-        The strucure of the sample：
-        the first column is dependent variable/ Test Portfolio Return
-        the second to the last-1 columns is independent variable/ factor loadings
-        the last coolumn is time label
+        input: 
+            sample (ndarray/DataFrame): data used for analysis 用于回归数据
+            The strucure of the sample：
+                the first column is dependent variable/ Test Portfolio Return
+                the second to the last-1 columns is independent variable/ factor loadings
+                the last coolumn is time label
         '''
         import numpy as np
 
@@ -42,8 +37,12 @@ class Fama_macbeth_regress():
     
     def divide_by_time(self, sample):
         '''
-        devide the sample by time into the groups 将样本按时间分组
-        output: groups by time： sample groups split by time 按时间分成的样本组
+        This function group the sample by time.
+        input :
+            sample (ndarray/DataFrame): The data for analysis in the __init__ function.
+
+        output :
+            groups_by_time (list): The sample grouped by time.
         '''
         import numpy as np
         
@@ -62,15 +61,13 @@ class Fama_macbeth_regress():
         The #1 step of Fama-Macbeth Regression Fama-Macbeth 回归第一步
         take the cross_sectional regress for each period 在每个时间段分别进行截面数据回归
         input : **kwargs: 
-                add_constant: whether add_constant when take CS regression 截面回归时是否添加常数
-        output: parameters: 
-                regression coefficient/factor risk premium: 回归参数/因子风险溢价
-                rows: group coefficient 每组回归参数
-                columns: regression variable 各因子风险溢价（回归参数）
-                tvalue: t value for the coefficient 回归参数的t值
-                rsquare: R-square 回归R方
-                adjrsq: Adjust R-square 调整回归R方
-                n: sample number in each group 每组的样本个数
+                add_constant (boolean): whether add_constant when take CS regression 截面回归时是否添加常数
+        output: 
+            parameters (ndarray): The regression coefficient/factor risk premium, whose rows are the group coefficient and columns are regression variable.
+            tvalue (ndarray): t value for the coefficient.
+            rsquare (list): The r-square.
+            adjrsq (list):  The adjust r-square.
+            n (list): The sample quantity in each group.
         '''
 
         import statsmodels.api as sm
@@ -175,6 +172,25 @@ class Fama_macbeth_regress():
         '''
         Fit model 估计模型
         run function: time_series_average 运行函数： time_series_average()
+        
+        Example:
+        import numpy as np
+        from fama_macbeth import Fama_macbeth_regress
+    
+        # construct sample
+        year=np.ones((3000,1),dtype=int)*2020
+        for i in range(19):
+            year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
+        character=np.random.normal(0,1,(2,20*3000))
+        # print('Character:',character)
+        ret=np.array([-0.5,-1]).dot(character)+np.random.normal(0,1,20*3000)
+        sample=np.array([ret,character[0],character[1],year]).T    
+        # print('Sample:',sample)
+        # print(sample.shape)
+
+        model = Fama_macbeth_regress(sample) 
+        result = model.fit(add_constant=False)
+        print(result)
         '''
 
         self.time_series_average(**kwargs) 
@@ -205,6 +221,8 @@ class Fama_macbeth_regress():
     def summary(self,charactername=None) :
         '''
         summary the time-series average 总结时间序列平均
+        input :
+            charactername : The factors' name in the cross-section regression model.
         '''
         from prettytable import PrettyTable        
         import numpy as np
@@ -242,16 +260,38 @@ class Fama_macbeth_regress():
         
 class Factor_mimicking_portfolio():
     '''
-    Factor_mimicking_portfolio:
-    Following Fama-French(1993), generate factor mimicking portfolio and calculate factor risk premium.
+    This module is designed for generating factor mimicking portfolio following the Fama-French (1993) conventions, and then calculating factor risk premium.    
+    
+    1. Group stocks by two dimensions. One dimension is size, divided by 50% small stocks and 50% big stocks. The other is the factor, divided by 30% tail factor stocks, 30%~70% factor stocks, and 70%~100% factor stocks.
+    2. Calculate market value weighted portfolio return and factor risk premium.
+       SMB=1/3(S/L+S/M+S/H)-1/3(B/L+B/M+B/H)
+       Factor=1/2(S/H+B/H)-1/2(S/L+B/L)
+    3. In Fama-French (1993), the factor is book-to-market ratio, and other literatures follow the same way to construct factor mimicking portfolio. The return of each portfolio is represented by the market value weighted portfolio return.  
     '''
+    def __init__(self, sample, perc_row=[0, 50, 100], perc_col=[0, 30, 70, 100], percn_row=None, percn_col=None, weight=True):
+        '''
+        This function initializes the object.
 
-    def __init__(self, sample, perc_row=[0, 50, 100], perc_col=[0, 30, 70, 100], weight=True):
+        input :
+            sample (ndarray or DataFrame): data for analysis. The structure of the sample : 
+                The first column is dependent variable/ test portfolio return.
+                The second is the first factor.
+                The third is the second factor.
+                The fourth is the timestamp.
+                The fifth is the weight.
+            perc_row (list or array): The percentiles that divide stocks by the first factor. The **Default** percentile is [0, 50, 100].
+            perc_col (list or array): The percentiles that divide stocks by the second factor. The **Default** percentile is [0, 30, 70, 100].
+            percn_row (list/array): The percentile that divide stocks by the first factor.
+            percn_col (list/array): The percentile that divide stocks by the second factor. 
+            weight (array or Series): Whether the portfolio return calculated by weight. The **Default** is True.
+        '''
         import numpy as np
         
         self.sample = sample
         self.perc_row = perc_row
         self.perc_col = perc_col
+        self.percn_row = percn_row
+        self.percn_col = percn_col
         self.weight = weight
         if type(sample).__name__ == 'DataFrame':
             self._time = np.sort(np.unique(sample.iloc[:, 3])) 
@@ -261,10 +301,41 @@ class Factor_mimicking_portfolio():
     def portfolio_return_time(self):
         '''
         Construct portfolio and calculate the average return and difference matrix 
+        This function is to construct portfolio and calculate the average return and difference matrix.
+        output : 
+            diff (ndarray): The differenced portfolio return matrix.
+        
+        Example:
+        TEST Factor_mimicking_portfolio
+        construct sample:
+        1. 20 Periods
+        2. 3000 Observations for each Period
+        3. Character negative with return following the return=character*-0.5+sigma where sigma~N(0,1)
+
+        import numpy as np
+        from fama_macbeth import Factor_mimicking_portfolio
+    
+        # construct sample
+        year=np.ones((3000,1),dtype=int)*2020
+        for i in range(19):
+            year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
+        character=np.random.normal(0, 1, (2, 20*3000))
+        weight = np.random.uniform(0, 1, (1, 20*3000))
+        ret=np.array([-0.5,-1]).dot(character)+np.random.normal(0,1,20*3000)
+        sample=np.array([ret, character[0], character[1], year, weight[0]]).T
+
+        model = Factor_mimicking_portfolio(sample)
+        portfolio_return_time = model.portfolio_return_time()
+        print('portfolio_return_time:', portfolio_return_time)
+        print('portfolio_return_time:', np.shape(portfolio_return_time))
         '''
         from .portfolio_analysis import Bivariate
         
-        bi = Bivariate(self.sample, perc_row=self.perc_row, perc_col=self.perc_col, weight=self.weight)
+        bi = Bivariate(self.sample)
+        if all([self.percn_row is None, self.percn_col is None]):
+            bi.fit(perc_row=self.perc_row, perc_col=self.perc_col, weight=self.weight)
+        else:
+            bi.fit(percn_row=self.percn_row, percn_col=self.percn_col, weight=self.weight)
         diff = bi.difference(bi.average_by_time())
         
         return diff
@@ -272,6 +343,11 @@ class Factor_mimicking_portfolio():
     def portfolio_return(self):
         '''
         Construct factor risk premium
+        This function is to construct factor risk premium.
+        output :
+            return_row : The first factor risk premium. The **Default** is size factor.
+            return_col : The second factor risk premium. 
+        
         '''
         import numpy as np
         import pandas as pd
@@ -289,8 +365,22 @@ class Factor_mimicking_portfolio():
     def portfolio_return_horizon(self, period, ret=False):
         '''
         Construct horizon pricing factor
+        This function is to construct horizon pricing factor. For details, read Horizon Pricing, JFQA, 2016, 51(6): 1769-1793.
         input :
-            period (int): period
+            period (int): The lagged period for constructing factor risk premium return.
+            log(boolean): whether use log return.
+
+        output :
+        return_row_multi : The first factor risk premium. The DEFAULT is size factor.
+        return_col_multi : The second factor premium.
+
+        Example:
+        # Continue the previous code
+        portfolio_return = model.portfolio_return()
+        print('portfolio_return_row: \n', portfolio_return[0])
+        print('portfolio_return_row:', np.shape(portfolio_return[0]))
+        print('portfolio_return_col: \n', portfolio_return[1])
+        print('portfolio_return_col:', np.shape(portfolio_return[1]))
         '''
         import numpy as np
         import pandas as pd

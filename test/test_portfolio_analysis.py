@@ -59,7 +59,26 @@ def test_ptf_analysis() :
     ave_ret = ptfa().average(sample_return, label, cond='bi')
     print(ave_ret)
 
+    # generate time 
+    year=np.ones((3000,1),dtype=int)*2020
+    for i in range(19):
+        year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
+    
+    # generate variables
+    variable_1 = np.random.normal(0, 1, 20*3000)
+    variable_2 = np.random.normal(0, 1, 20*3000)
+    # generate character
+    character=np.random.normal(0,1,20*3000)
+    # generate future return
+    ret=character*-0.5+np.random.normal(0,1,20*3000)
+    # create sample containing future return, character, time
+    sample=np.array([character,year]).T
+    
+    breakpoints = ptfa().create_breakpoint(data=sample, number=4)
+    print(breakpoints)
+    
 test_ptf_analysis()
+
 
 #%% test class univariate()
 def test_univariate() :
@@ -73,6 +92,7 @@ def test_univariate() :
     '''
     import numpy as np
     from portfolio_analysis import Univariate as uni
+    from portfolio_analysis import ptf_analysis as ptfa
     
     # generate time 
     year=np.ones((3000,1),dtype=int)*2020
@@ -88,26 +108,34 @@ def test_univariate() :
     ret=character*-0.5+np.random.normal(0,1,20*3000)
     # create sample containing future return, character, time
     sample=np.array([ret,character,year]).T
+
     # generate the Univiriate Class
-    exper=uni(sample,9)
+    exper=uni(sample)
+    exper.fit(4)
     # test function average_by_time
     data=exper.average_by_time()
-    print(data)
     # test function summary_and_test
     exper.summary_and_test()
     # test function print_summary_by_time
     exper.print_summary_by_time()
     # test function print_summary
     exper.print_summary()
+
+    # check breakpoint
+    breakpoint = ptfa().create_breakpoint(data=np.array([character, year]).T, number=4)[0]
+    exper = uni(sample)
+    exper.fit(9, percn=breakpoint)
+    exper.print_summary()
     
     # generate factor
     factor=np.random.normal(0,1.0,(20,1))
-    exper=uni(sample, 9, maxlag=12)
-    exper.fit()
-    exper.factor_adjustment(factor)
+    exper=uni(sample)
+    exper.fit(9, maxlag=12)
+    #exper.factor_adjustment(factor)
     # print(exper.summary_and_test())
     exper.print_summary()
-
+    
+    print('-------------------------------------------------------------------------------')
     # summary statstics
     exper.summary_statistics()
     exper.summary_statistics(periodic=True)
@@ -137,6 +165,7 @@ def test_bivariate():
 
     import numpy as np
     from portfolio_analysis import Bivariate as bi
+    from portfolio_analysis import ptf_analysis as ptfa
     
     # generate time 
     year = np.ones((3000,1), dtype=int)*2020
@@ -147,15 +176,13 @@ def test_bivariate():
     character_1 = np.random.normal(0, 1, 20*3000)
     character_2 = np.random.normal(0, 1, 20*3000)
 
-
-
     # generate future return
     ret=character_1*-0.5 + character_2*0.5 + np.random.normal(0,1,20*3000)
     # create sample containing future return, character, time
     sample=np.array([ret,character_1, character_2, year]).T
-    print(sample)
     # generate the Univiriate Class
-    exper=bi(sample,9)
+    exper=bi(sample)
+    exper.fit(number=4)
     # test function divide_by_time
     group_by_time = exper.divide_by_time()
     print('group by time: \n', group_by_time)
@@ -178,18 +205,26 @@ def test_bivariate():
     # test function print_summary
     exper.print_summary()
     
+    breakpoint = ptfa().create_breakpoint(np.array([character_1, character_2, year]).T, number=4)
+    percn_row = breakpoint[0]
+    percn_col = breakpoint[1]
+    exper = bi(sample)
+    exper.fit(9, percn_row=percn_row, percn_col=percn_col)
+    exper.print_summary()
+    
     print('\n---------------------------------- Factor Adjustment--------------------------------------\n')
     # generate factor
-    factor = np.random.normal(0, 1.0, (20, 1))
-    exper = bi(sample, 9, maxlag=12)
-    exper.fit()
-    exper.factor_adjustment(factor)
-    exper.print_summary(export=True)
+    #factor = np.random.normal(0, 1.0, (20, 1))
+    #exper = bi(sample, 9, maxlag=12)
+    #exper.fit()
+    #exper.factor_adjustment(factor)
+    #exper.print_summary(export=True)
 
     print('\n---------------------------------- Conditinoal Portfolio ----------------------------------\n')
     # conditional portfolio
     # test function average_by_time
-    exper_con = bi(sample, 9, maxlag=12)
+    exper_con = bi(sample)
+    exper_con.fit(9, maxlag=12)
     average_group_time = exper_con.average_by_time(conditional=True)
     print('average_group_time: \n', average_group_time)
     print('shape of average_group_time: \n', np.shape(average_group_time))
@@ -207,7 +242,7 @@ def test_bivariate():
     exper_con.print_summary_by_time()
     # test function print_summary
     exper_con.print_summary()
-  
+
 test_bivariate()
 
 # %% test persistence

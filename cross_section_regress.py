@@ -2,18 +2,15 @@
 Cross Section Regression 截面数据回归
 '''
 
-from math import e
-from numpy.core.defchararray import add
-
-import prettytable
-from statsmodels.genmod.generalized_estimating_equations import ParameterConstraint
-from .time_series_regress import TS_regress
-
-
 class CS_regress() :
     def __init__(self, list_y, factor) :
+        '''
+        This function initializes the class.
+        input :
+            y_list (list/DataFrame): The assets return series list.
+            factor (ndarray/DataFrame):* The factor risk premium series.
+        '''
         import numpy as np
-        from distutils.log import ERROR
 
         if type(list_y).__name__ == 'DataFrame':
             self._name_y = list(list_y.columns)
@@ -22,7 +19,7 @@ class CS_regress() :
             self._name_y = None
             self.list_y = list_y
         else:
-            return ERROR
+            raise IOError
         
         if type(factor).__name__ == 'DataFrame':
             self._name_factor = list(factor.columns)
@@ -31,9 +28,15 @@ class CS_regress() :
             self._name_factor = None
             self.factor = factor
         else:
-            return ERROR
+            raise IOError
     
     def ts_regress(self) :
+        '''
+        This function conducts the time series regression.
+        output :
+        beta(ndarray[N, c]) : The betas for each asset.
+        err_mat (ndarray): The error matrix.
+        '''
         from statsmodels.api import OLS
         from statsmodels.api import add_constant
         import numpy as np
@@ -54,6 +57,11 @@ class CS_regress() :
         return beta, err_mat
     
     def ave(self) :
+        '''
+        This function conducts the average operation on the assets returns series list.
+        output :
+            np.mean(self.y_list, axis=1) : The average of the assets returns series list.
+        '''
         import numpy as np
 
         return np.mean(self.list_y, axis=1)
@@ -61,6 +69,31 @@ class CS_regress() :
     def cs_regress(self, beta, err_mat, constant=True, gls=True, **kwargs) :
         '''
         Cross Section Regression
+        This function takes the cross-sectional regression.
+        input :
+            beta (ndarray): The betas from the output of the function ts_regress().
+            err_mat (ndarray) : The error matrix from the output of the function ts_regress().
+            constant (boolean): add constant or not. The default is add constant.
+            gls (boolean): GLS regression or OLS regression. The default is GLS regression.
+
+        output :
+        params (array): The params of the cross regression model.
+        resid (array): The residue of the cross regression model.
+
+        Example:
+        from statsmodels.regression.linear_model import GLS
+        from EAP.cross_section_regress import CS_regress
+        import numpy as np
+    
+        X = np.random.normal(loc=0, scale=0.1, size=(2000,3))
+        y_list = []
+        for i in range(100) :
+            b = np.random.uniform(low=-1, high=1, size=(3,1))
+            e = np.random.normal(loc=0.0, scale=0.5, size=(2000,1))
+            alpha = np.random.normal(loc=0.0, scale=0.5)
+            y = X.dot(b)  + e 
+            y_list.append(y)
+        print(np.mean(X, axis= 0)) # average return of the factor risk premium 
         '''
         import numpy as np
         from statsmodels.api import OLS, GLS
@@ -87,6 +120,17 @@ class CS_regress() :
     def cov_mat(self, beta, err_mat, shanken=True, constant=True, gls=True, **kwargs) :
         '''
         The covariance matrix
+        This function calculates the covariance matrix of the cross regression model. 
+        input :
+            beta (ndarray): The betas from the output of the function ts_regress().
+            err_mat (ndarray): The error matrix from the output of the function ts_regress().
+            shanken (boolean): Take the shanken adjustment or not. The default is True.
+            constant (boolean): add constant or not.
+            gls (boolean): GLS regression or OLS regression. The default is GLS regression.
+
+        output :
+            param_cov_mat (ndarray): The covariance matrix of the parameters.
+            resid_cov_mat (ndarray): The covariance matrix of the residue.
         '''
         import numpy as np
         from numpy.linalg import inv
@@ -124,6 +168,14 @@ class CS_regress() :
     def t_test(self, param_cov_mat, params) :
         '''
         T test for parameters
+        This function takes t-test for parameters.
+        input :
+            param_cov_mat (ndarray): The covariance matrix of the parameters from the function cov_mat.
+            params (ndarray): The parameters from the function cs_regress.
+
+        output :
+            t_value (ndarray): The t-value for statistical inference.
+            p_value (ndarray): The p-value for statistical inference.
         '''
         import numpy as np
         from numpy.linalg import inv
@@ -144,6 +196,14 @@ class CS_regress() :
     def union_test(self, resid_cov_mat, resid) :
         '''
         Union test
+        This function takes union test for parameters.
+        input :
+            resid_cov_mat (ndarray): The covariance matrix of the residue. 
+            resid (ndarray): The residue from the function cs_regress.
+
+        output :
+            chi_square (list): The chi-square statistics.
+            p_value (list): The p-value corresponding to the chi-square.
         '''
         import numpy as np
         from numpy.linalg import inv
@@ -162,6 +222,7 @@ class CS_regress() :
     def fit(self,**kwargs) :
         '''
         Fit model
+        This function runs the cross-sectional regression and takes the statistical inference.
         '''
         import numpy as np
 
@@ -174,6 +235,55 @@ class CS_regress() :
     def summary(self) :
         '''
         Summary
+
+        Example:
+        print("\n---------------------GLS: Constant=True shanken=True------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit()
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------GLS: Constant=False shanken=True------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(constant=False) 
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------GLS: Constant=True shanken=False------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(shanken=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------GLS: Constant=False shanken=False------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(constant=False, shanken=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------OLS: Constant=True shanken=True------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(gls=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------OLS: Constant=False shanken=True------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(constant=False, gls=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------OLS: Constant=True shanken=False------------------------\n")
+        re = CS_regress(y_list, X) 
+        re.fit(shanken=False, gls=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
+    
+        print("\n---------------------OLS: Constant=False shanken=False------------------------\n")
+        re = CS_regress(y_list, X)
+        re.fit(constant=False, shanken=False, gls=False)
+        re.summary()
+        print("\n------------------------------------------------------------------------\n")
         '''
         import numpy as np
         from prettytable import PrettyTable
