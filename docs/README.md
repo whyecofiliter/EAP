@@ -1,0 +1,1 @@
+This package is designed for empirical asset pricing (EAP).
