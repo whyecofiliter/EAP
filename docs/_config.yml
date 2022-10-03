@@ -1,6 +1,8 @@
 title: EAP
 lang: en
 description: a catchy description for your project
+markdown: kramdown
+
 
 remote_theme: rundocs/jekyll-rtd-theme
 
