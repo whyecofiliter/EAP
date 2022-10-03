@@ -1,3 +1,7 @@
+---
+sort: 4
+---
+
 ### portfolio_analysis
 
 This module is used for portfolio analysis by 4 steps:
