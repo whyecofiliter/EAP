@@ -1,3 +1,7 @@
+---
+sort: 1
+---
+
 # Documentation
 
 ## Module
