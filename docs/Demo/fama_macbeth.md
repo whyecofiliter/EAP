@@ -1,3 +1,7 @@
+---
+sort: 2
+---
+
 ## fama_macbeth
 
 ### Factor mimicking portfolio
