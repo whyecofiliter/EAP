@@ -1,11 +1,10 @@
----
-sort: 1
----
-
 # Documentation
 
 ## Module
 
+---
+sort: 1
+---
 ### portfolio_analysis
 
 This module is used for portfolio analysis by 4 steps:
@@ -214,7 +213,9 @@ print(breakpoints)
 ```
 
 
-
+---
+sort: 2
+---
 
 
 #### class Univariate(ptf_analysis):
