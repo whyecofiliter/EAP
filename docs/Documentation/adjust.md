@@ -1,3 +1,7 @@
+---
+sort: 1
+---
+
 ### adjust
 
 This module consists of several common adjustment method in factor analysis.
