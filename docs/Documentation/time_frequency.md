@@ -1,3 +1,7 @@
+---
+sort: 5
+---
+
 ### time_frequency
 
 This module is designed for time frequency asset pricing model, including Fourier Transform based method and Wavelet based method.
