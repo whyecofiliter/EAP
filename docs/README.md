@@ -1,4 +1,4 @@
-This package is designed for empirical asset pricing (EAP).
+**This package is designed for empirical asset pricing (EAP).
 
 # Quick Start
 
