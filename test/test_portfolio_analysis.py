@@ -1,6 +1,8 @@
 # %% Set system path
 import sys,os
 
+from numpy import average
+
 sys.path.append(os.path.abspath(".."))
 
 #%% test class ptf_analysis()
@@ -79,7 +81,6 @@ def test_ptf_analysis() :
     
 test_ptf_analysis()
 
-
 #%% test class univariate()
 def test_univariate() :
     '''
@@ -93,6 +94,7 @@ def test_univariate() :
     import numpy as np
     from portfolio_analysis import Univariate as uni
     from portfolio_analysis import ptf_analysis as ptfa
+    from util import plot
     
     # generate time 
     year=np.ones((3000,1),dtype=int)*2020
@@ -126,7 +128,10 @@ def test_univariate() :
     exper = uni(sample)
     exper.fit(9, percn=breakpoint)
     exper.print_summary()
-    
+
+    print(np.shape(exper.average_result))
+    plot(exper)
+
     # generate factor
     factor=np.random.normal(0,1.0,(20,1))
     exper=uni(sample)
@@ -150,7 +155,7 @@ def test_univariate() :
     print(np.array([variable_1, variable_2, variable_3, variable_4]).T)
 
 test_univariate()
-    
+
 # %% test class bivariate
 def test_bivariate():
     '''
@@ -349,118 +354,5 @@ def test_spanning_test():
 
 test_spanning_test()
 
-# %%
-import numpy as np
-
-c_t1 = np.random.normal(loc=1, scale=3.0, size=10000)
-c_t2 = np.random.normal(loc=1, scale=1.5, size=10000) 
-c_t3 = c_t1 * c_t2
-c_t4 = 1/c_t1
-
-print('t1 and t2:', np.corrcoef(c_t1, c_t2))
-print('t1 and t3:', np.corrcoef(c_t1, c_t3))
-print('t2 and t3:', np.corrcoef(c_t2, c_t3))
-print('t1 and t4:', np.corrcoef(c_t1, c_t4))
-print('inv t1 and inv t3', np.corrcoef(1/c_t1, 1/c_t3))
-
-
-# %%
-import numpy as np
-from portfolio_analysis import Univariate as uni
-    
-    # generate time 
-year=np.ones((3000,1),dtype=int)*2020
-for i in range(19):
-    year=np.append(year,(2019-i)*np.ones((3000,1),dtype=int))
-    
-    # generate variables
-variable_1 = np.random.normal(0, 1, 20*3000)
-variable_2 = np.random.normal(0, 1, 20*3000)
-    # generate character
-character=np.random.normal(0,1,20*3000)
-    # generate future return
-ret=character*-0.5+np.random.normal(0,1,20*3000)
-    # create sample containing future return, character, time
-sample=np.array([ret,character,year]).T
-    # generate the Univiriate Class
-
-# %%
-exper=uni(sample,9)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=uni(sample,9, maxlag=3)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=uni(sample,9, maxlag=6)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=uni(sample,9, maxlag=9)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=uni(sample,9, maxlag=12)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=uni(sample,9, maxlag=0)
-exper.fit()
-exper.print_summary()
-
-# %%
-import numpy as np
-from portfolio_analysis import Bivariate as bi
-    
-    # generate time 
-year = np.ones((3000,1), dtype=int)*2020
-for i in range(19):
-    year = np.append(year, (2019-i)*np.ones((3000,1), dtype=int))
-    
-    # generate character
-character_1 = np.random.normal(0, 1, 20*3000)
-character_2 = np.random.normal(0, 1, 20*3000)
-
-
-
-    # generate future return
-ret=character_1*-0.5 + character_2*0.5 + np.random.normal(0,1,20*3000)
-    # create sample containing future return, character, time
-sample=np.array([ret,character_1, character_2, year]).T
-    # generate the Univiriate Class
-exper=bi(sample,9)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=bi(sample,9, maxlag=3)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=bi(sample,9, maxlag=6)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=bi(sample,9, maxlag=9)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=bi(sample,9, maxlag=12)
-exper.fit()
-exper.print_summary()
-
-# %%
-exper=bi(sample,9, maxlag=0)
-exper.fit()
-exper.print_summary()
 
 # %%

@@ -2,15 +2,26 @@
 Cross Section Regression 截面数据回归
 '''
 
+from pandas import DataFrame
+from numpy import ndarray
+
+import numpy as np
+from statsmodels.api import OLS, GLS
+from statsmodels.api import add_constant
+from numpy.linalg import inv
+from scipy.stats import t
+from scipy.stats import chi2
+from prettytable import PrettyTable
+
+
 class CS_regress() :
-    def __init__(self, list_y, factor) :
+    def __init__(self, list_y: DataFrame, factor:DataFrame) -> None:
         '''
         This function initializes the class.
         input :
             y_list (list/DataFrame): The assets return series list.
             factor (ndarray/DataFrame):* The factor risk premium series.
         '''
-        import numpy as np
 
         if type(list_y).__name__ == 'DataFrame':
             self._name_y = list(list_y.columns)
@@ -37,9 +48,6 @@ class CS_regress() :
         beta(ndarray[N, c]) : The betas for each asset.
         err_mat (ndarray): The error matrix.
         '''
-        from statsmodels.api import OLS
-        from statsmodels.api import add_constant
-        import numpy as np
 
         length = len(self.list_y)
         r, c = np.shape(self.factor)
@@ -62,11 +70,9 @@ class CS_regress() :
         output :
             np.mean(self.y_list, axis=1) : The average of the assets returns series list.
         '''
-        import numpy as np
-
         return np.mean(self.list_y, axis=1)
 
-    def cs_regress(self, beta, err_mat, constant=True, gls=True, **kwargs) :
+    def cs_regress(self, beta: ndarray, err_mat: ndarray, constant: bool=True, gls: bool=True, **kwargs) :
         '''
         Cross Section Regression
         This function takes the cross-sectional regression.
@@ -95,9 +101,6 @@ class CS_regress() :
             y_list.append(y)
         print(np.mean(X, axis= 0)) # average return of the factor risk premium 
         '''
-        import numpy as np
-        from statsmodels.api import OLS, GLS
-        from statsmodels.api import add_constant
 
         y_mean = self.ave()
         if constant == True and gls == False :
@@ -117,7 +120,7 @@ class CS_regress() :
 
             return result.params, result.resid, result.rsquared, result.rsquared_adj
 
-    def cov_mat(self, beta, err_mat, shanken=True, constant=True, gls=True, **kwargs) :
+    def cov_mat(self, beta: ndarray, err_mat:ndarray, shanken: bool=True, constant: bool=True, gls: bool=True, **kwargs) :
         '''
         The covariance matrix
         This function calculates the covariance matrix of the cross regression model. 
@@ -132,9 +135,6 @@ class CS_regress() :
             param_cov_mat (ndarray): The covariance matrix of the parameters.
             resid_cov_mat (ndarray): The covariance matrix of the residue.
         '''
-        import numpy as np
-        from numpy.linalg import inv
-        from statsmodels.api import add_constant
 
         length = len(self.list_y)
         r, c = np.shape(self.factor)
@@ -165,7 +165,7 @@ class CS_regress() :
 
         return param_cov_mat, resid_cov_mat
     
-    def t_test(self, param_cov_mat, params) :
+    def t_test(self, param_cov_mat: ndarray, params:ndarray) :
         '''
         T test for parameters
         This function takes t-test for parameters.
@@ -177,9 +177,6 @@ class CS_regress() :
             t_value (ndarray): The t-value for statistical inference.
             p_value (ndarray): The p-value for statistical inference.
         '''
-        import numpy as np
-        from numpy.linalg import inv
-        from scipy.stats import t
         
         r, c = np.shape(self.factor)
         params_std = np.expand_dims(np.diagonal(param_cov_mat)**0.5, axis=1)
@@ -193,7 +190,7 @@ class CS_regress() :
                 p_value[i] = 2*t.cdf(t_value[i], r-1)
         return t_value, p_value
 
-    def union_test(self, resid_cov_mat, resid) :
+    def union_test(self, resid_cov_mat: ndarray, resid:ndarray) :
         '''
         Union test
         This function takes union test for parameters.
@@ -205,9 +202,6 @@ class CS_regress() :
             chi_square (list): The chi-square statistics.
             p_value (list): The p-value corresponding to the chi-square.
         '''
-        import numpy as np
-        from numpy.linalg import inv
-        from scipy.stats import chi2
         
         length = len(self.list_y)
         r, c = np.shape(self.factor)
@@ -224,7 +218,6 @@ class CS_regress() :
         Fit model
         This function runs the cross-sectional regression and takes the statistical inference.
         '''
-        import numpy as np
 
         beta, err_mat = self.ts_regress()
         self.params, resid, self.rsquare, self.rsquare_adj = self.cs_regress(beta, err_mat,**kwargs)
@@ -285,9 +278,6 @@ class CS_regress() :
         re.summary()
         print("\n------------------------------------------------------------------------\n")
         '''
-        import numpy as np
-        from prettytable import PrettyTable
-
         
         print("\n-------------------------- Risk Premium ------------------------------\n")
         table1 = PrettyTable()

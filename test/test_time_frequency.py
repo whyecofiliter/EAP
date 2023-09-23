@@ -24,6 +24,7 @@ print(np.shape(pick_series))
 # %%
 wave_rec = wl._rebuild()
 
+
 # %%
 import matplotlib.pyplot as plt
 
@@ -96,3 +97,4 @@ plt.plot(s_rec_sum)
 # %
 s_rec_resid = s - s_rec_sum
 plt.plot(s_rec_resid)
+# %%

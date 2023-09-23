@@ -7,11 +7,24 @@ This module is used for portfolio analysis by 4 steps:
     4. summary the result
 '''
 
+from pandas import DataFrame, Series, array
+from numpy import ndarray
+
+import numpy as np
+from scipy import stats
+from scipy import stats as sts
+import statsmodels.api as sm
+import pandas as pd
+from prettytable import PrettyTable
+from numpy.linalg import inv, det, eig
+
+from .adjust import newey_west_t
+
 class ptf_analysis():
     def __init__(self) :
         pass
     
-    def select_breakpoints(self, character, number, perc=None, percn=None):
+    def select_breakpoints(self, character: ndarray, number:int, perc:list=None, percn:list=None) -> ndarray:
         '''
         This function, corresponding to the step 1,  selects the breakpoints of the sample.
         input :  
@@ -38,7 +51,7 @@ class ptf_analysis():
             print('True breakpoint', i, '%:', np.percentile(character,i))
 
         '''
-        import numpy as np
+
         # create percentiles
         if perc == None: 
             perc = np.linspace(0, 100, number+2, dtype=int)
@@ -52,7 +65,7 @@ class ptf_analysis():
 
         return breakpoint
     
-    def distribute(self, character, breakpoint):
+    def distribute(self, character: ndarray, breakpoint: array) -> ndarray:
         '''
         This function, corresponding to the step 2, distributes the assets into groups by characteristics  grouped by the breakpoint.
         input :  
@@ -74,7 +87,6 @@ class ptf_analysis():
         # print the label
         print('Label:\n', ptfa().distribute(character, breakpoint))
         '''
-        import numpy as np
         
         r = len(character)
         label = np.zeros((r, 1))
@@ -83,7 +95,7 @@ class ptf_analysis():
             label[np.where((character >= breakpoint[i]) & (character <= breakpoint[i+1]) & (i+1 == len(breakpoint) - 1))] = i
         return label
     
-    def average(self, sample_return, label, cond='uni', weight=None):
+    def average(self, sample_return:ndarray, label:ndarray, cond:str='uni', weight:ndarray=None) -> ndarray:
         '''
         This function, corresponding to the step 3, calculates the average return for each group.
         input :
@@ -103,7 +115,6 @@ class ptf_analysis():
         # print the groups return
         print('average return for groups:\n', ave_ret)
         '''
-        import numpy as np
 
         if cond == 'uni' :
             # the whole group label, eg. 10 group lables: [1,2,3,4,5,6,7,8,9,10]  
@@ -141,7 +152,7 @@ class ptf_analysis():
             # return average value of each group
             return average_return
     
-    def statistics(self, variable, label, func, cond='uni'):
+    def statistics(self, variable:ndarray, label:ndarray, func:..., cond:str='uni') -> ndarray:
         '''
         This function is for summary statistics of groups.
         input :
@@ -153,7 +164,6 @@ class ptf_analysis():
         output:
         average_statistics (ndarray):* The statistics of each group.
         '''
-        import numpy as np
         
         # the whole group label, eg. 10 group labels: [1,2,3,4,5,6,7,9,10]
         temp_label = np.sort(np.unique(label))
@@ -181,7 +191,7 @@ class ptf_analysis():
 
             return average_statistics
     
-    def create_breakpoint(self, data, number, perc=None):
+    def create_breakpoint(self, data:DataFrame, number:int, perc:list=None) -> list[ndarray]:
         '''
         This function is for creating breakpoints. In many researches, the special breakpoints are needed like NYSE breakpoints in common. This function is designed for this demand.
 
@@ -207,7 +217,6 @@ class ptf_analysis():
         breakpoints = ptfa().create_breakpoint(data=sample, number=4)
         print(breakpoints)
         '''
-        import numpy as np
        
         if type(data).__name__ == 'DataFrame':
             data = np.array(data)
@@ -243,12 +252,23 @@ class ptf_analysis():
         
         return breakpoint_array
 
+    def return_average_ttest(self, alpha=False)-> ndarray:
+        '''
+        return result, ttest, 
+        and alpha if requested 
+        '''
+        if alpha == False:
+            return self.average_result, self.ttest
+        elif alpha == True:
+            return self.average_result, self.ttest, self.alpha, self.alpha_tvalue
+
 
 class Univariate(ptf_analysis):
     '''
     This class is designed for univariate portfolio analysis.
     '''
-    def __init__(self, sample):
+
+    def __init__(self, sample: DataFrame):
         '''
         input: sample: the samples to be analyzed 
             sample usually contain the future return, characteristics, time 
@@ -261,7 +281,6 @@ class Univariate(ptf_analysis):
             factor: risk adjust factor
             maxlag: maximum lag for Newey-West adjustment
         '''
-        import numpy as np
 
         if type(sample).__name__ == 'DataFrame':
             self.sample = np.array(sample)
@@ -273,14 +292,13 @@ class Univariate(ptf_analysis):
         else:
             raise IOError
              
-    def divide_by_time(self, sample):
+    def divide_by_time(self, sample: ndarray) -> ndarray:
         '''
         This function groups the sample by time.
         split the sample by time into groups  
         output : 
         groups_by_time (list): The samples group by time.
         '''
-        import numpy as np
         
         time = np.sort(np.unique(sample[:, 2]))
         groups_by_time = list()
@@ -289,7 +307,7 @@ class Univariate(ptf_analysis):
         
         return groups_by_time
             
-    def average_by_time(self):
+    def average_by_time(self)->list[ndarray]:
         '''
         average of the groups at each time point
         This function, using the sample group by time from function *divide_by_time*, 
@@ -317,7 +335,7 @@ class Univariate(ptf_analysis):
         data=exper.average_by_time()
         print(data)
         '''
-        import numpy as np
+
         # get the sample groups by time 得到按时间分组的样本
         groups_time = self.divide_by_time(self.sample)
         # generate table of  average return for group and time 生成组和时间的表格
@@ -355,7 +373,7 @@ class Univariate(ptf_analysis):
         # Columns: Time 
         return average_group_time
 
-    def difference(self,average_group):
+    def difference(self,average_group:ndarray) -> ndarray:
         '''
         This functions calculates the difference of group return, which, in detail, 
         is the last group average return minus the first group average return. 
@@ -365,7 +383,6 @@ class Univariate(ptf_analysis):
         output :
         result (ndarray): The matrix added with the difference of average group return.
         '''
-        import numpy as np
         
         diff = average_group[-1, :] - average_group[0, :]
         diff = diff.reshape((1, len(diff)))        
@@ -378,16 +395,13 @@ class Univariate(ptf_analysis):
         '''
         This function summarizes the result and take t-test.
         output : 
-        self.average (ndarray): The average of the portfolio return across time.
+        self.average_result (ndarray): The average of the portfolio return across time.
         self.ttest (ndarray): The t-value of the portfolio return across time.
         '''
-        import numpy as np
-        from scipy import stats
-        from .adjust import newey_west_t
         
         self.result = self.difference(self.average_by_time())
         r, c = np.shape(self.result)
-        self.average = np.nanmean(self.result, axis=1)
+        self.average_result = np.nanmean(self.result, axis=1)
         if self.maxlag == 0 :
             self.ttest = stats.ttest_1samp(self.result, 0.0, axis=1, nan_policy='omit')
         else:
@@ -406,9 +420,9 @@ class Univariate(ptf_analysis):
 #            self.alpha, self.alpha_tvalue = self.factor_adjustment(self.result)
 #            return self.average, self.ttest, self.alpha, self.alpha_tvalue
 
-        return self.average, self.ttest
+        return self.average_result, self.ttest
     
-    def fit(self, number, perc=None, percn=None, maxlag=12, weight=False) :
+    def fit(self, number:int, perc:list =None, percn:ndarray =None, maxlag:int=12, weight:bool=False) -> None:
         '''
         This function fit the model
         input :
@@ -418,7 +432,6 @@ class Univariate(ptf_analysis):
         maxlag (int): The maximum lag for Newey-West adjustment.
         weight (boolean): If the weighted return is chosen, then weight is True. The **DEFAULT** is False.
         '''
-        import numpy as np
 
         if perc is not None :
             self.number = len(perc) - 2
@@ -437,7 +450,7 @@ class Univariate(ptf_analysis):
 
         self.summary_and_test()
 
-    def factor_adjustment(self, factor):
+    def factor_adjustment(self, factor:DataFrame):
         '''
         This function calculates the group return adjusted by risk factors.
         input :
@@ -454,9 +467,6 @@ class Univariate(ptf_analysis):
         # print(exper.summary_and_test()) # if needed
         exper.print_summary()
         '''
-        import statsmodels.api as sm
-        import numpy as np
-        import pandas as pd
         
         if type(factor).__name__ == 'DataFrame':
             self._factor = factor
@@ -508,7 +518,7 @@ class Univariate(ptf_analysis):
 
         return alpha, ttest    
     
-    def extractor(self, pos):
+    def extractor(self, pos:int) -> Series:
         '''
         This function extracts the return series
         input :
@@ -517,8 +527,6 @@ class Univariate(ptf_analysis):
         output:
         series_ex (Series): The extracted Series.
         '''
-        import numpy as np
-        import pandas as pd
         
         if type(pos).__name__ != 'int':        
             return IOError 
@@ -533,7 +541,7 @@ class Univariate(ptf_analysis):
 
         return series_ex
 
-    def summary_statistics(self, variables=None, periodic=False):
+    def summary_statistics(self, variables:DataFrame =None, periodic:bool =False):
         '''
         This function is for summary statistics and outputs the group statistics and variables statistics. 
         input :
@@ -546,13 +554,11 @@ class Univariate(ptf_analysis):
         exper.summary_statistics(periodic=True)
         exper.summary_statistics(variables=np.array([variable_1, variable_2]).T, periodic=True)
         '''
-        import numpy as np
-        from scipy import stats as sts
-        from prettytable import PrettyTable
         
         '''
         Group Statistics
         '''
+
         # Group Statistics
         if variables is None:
             groups_time = self.divide_by_time(self.sample)
@@ -770,7 +776,7 @@ class Univariate(ptf_analysis):
         print('\nIndicator Statistics')
         print(table)
     
-    def correlation(self, variables, periodic=False, export=False):
+    def correlation(self, variables:DataFrame, periodic: bool=False, export: bool=False):
         '''
         This function is for calculating correlation coefficient of variables.
         input :
@@ -792,9 +798,6 @@ class Univariate(ptf_analysis):
         # Variable Statistics
         # input:
         # variables (ndarray\DataFrame)
-        import numpy as np
-        from prettytable import PrettyTable 
-        from scipy import stats as sts
         
         r, c = np.shape(variables)
         temp_sample = np.c_[self.sample, variables]
@@ -893,7 +896,7 @@ class Univariate(ptf_analysis):
             
                 return df, df_spear
 
-    def print_summary_by_time(self, export=False) :
+    def print_summary_by_time(self, export: bool=False) :
         '''
         This function print the summary grouped by time.
         input :
@@ -902,8 +905,6 @@ class Univariate(ptf_analysis):
         output :
         df (DataFrame): The table exported in form of Dataframe.
         '''
-        import numpy as np
-        from prettytable import PrettyTable
         
         r, c = np.shape(self.result)
         table = PrettyTable()
@@ -927,7 +928,7 @@ class Univariate(ptf_analysis):
             
             return df
         
-    def print_summary(self, explicit = False, export=False, percentage=False):
+    def print_summary(self, explicit:bool = False, export:bool =False, percentage:bool =False):
         '''
         This function print the summary grouped by characteristic and averaged by time.
         input :
@@ -943,20 +944,19 @@ class Univariate(ptf_analysis):
         exper.print_summary_by_time()
         exper.print_summary()
         '''
-        import numpy as np
-        from prettytable import PrettyTable
+
         # generate Table if no factor
         table = PrettyTable()
         table.add_column('Group', ['Average', 'T-Test'])
         for i in range(self.number+1):
             if percentage == False:
-                table.add_column(str(i+1), np.around([self.average[i], self.ttest[0][i]], decimals=3))
+                table.add_column(str(i+1), np.around([self.average_result[i], self.ttest[0][i]], decimals=3))
             elif percentage == True:
-                table.add_column(str(i+1), np.around([self.average[i]*100, self.ttest[0][i]], decimals=3))
+                table.add_column(str(i+1), np.around([self.average_result[i]*100, self.ttest[0][i]], decimals=3))
         if percentage == False:
-            table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1]], decimals=3))
+            table.add_column('Diff', np.around([self.average_result[-1], self.ttest[0][-1]], decimals=3))
         elif percentage == True:
-            table.add_column('Diff', np.around([self.average[-1]*100, self.ttest[0][-1]], decimals=3))
+            table.add_column('Diff', np.around([self.average_result[-1]*100, self.ttest[0][-1]], decimals=3))
         
         if self._factor is not None :
             table = PrettyTable()
@@ -987,14 +987,14 @@ class Univariate(ptf_analysis):
 
                 if explicit == False:
                     if percentage == False:
-                        table.add_column(str(i+1), np.around([self.average[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]], decimals=3))
+                        table.add_column(str(i+1), np.around([self.average_result[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]], decimals=3))
                     elif percentage == True:
-                        table.add_column(str(i+1), np.around([self.average[i]*100, self.ttest[0][i], self.alpha[i][0]*100, self.alpha_tvalue[i][0]], decimals=3))
+                        table.add_column(str(i+1), np.around([self.average_result[i]*100, self.ttest[0][i], self.alpha[i][0]*100, self.alpha_tvalue[i][0]], decimals=3))
                 elif explicit == True:
                     if percentage == False:
-                        temp_re = [self.average[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]] + fac_re
+                        temp_re = [self.average_result[i], self.ttest[0][i], self.alpha[i][0], self.alpha_tvalue[i][0]] + fac_re
                     elif percentage == True:
-                        temp_re = [self.average[i]*100, self.ttest[0][i], self.alpha[i][0]*100, self.alpha_tvalue[i][0]] + fac_re
+                        temp_re = [self.average_result[i]*100, self.ttest[0][i], self.alpha[i][0]*100, self.alpha_tvalue[i][0]] + fac_re
                     table.add_column(str(i+1), np.around(temp_re, decimals=3))
             
             fac_re = list()
@@ -1008,14 +1008,14 @@ class Univariate(ptf_analysis):
 
             if explicit == False:
                 if percentage == False:
-                    table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]], decimals=3))
+                    table.add_column('Diff', np.around([self.average_result[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]], decimals=3))
                 elif percentage == True:
-                    table.add_column('Diff', np.around([self.average[-1]*100, self.ttest[0][-1], self.alpha[-1][0]*100, self.alpha_tvalue[-1][0]], decimals=3))
+                    table.add_column('Diff', np.around([self.average_result[-1]*100, self.ttest[0][-1], self.alpha[-1][0]*100, self.alpha_tvalue[-1][0]], decimals=3))
             elif explicit == True:
                 if percentage == False:
-                    table.add_column('Diff', np.around([self.average[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]] + fac_re, decimals=3))
+                    table.add_column('Diff', np.around([self.average_result[-1], self.ttest[0][-1], self.alpha[-1][0], self.alpha_tvalue[-1][0]] + fac_re, decimals=3))
                 elif percentage == True:
-                    table.add_column('Diff', np.around([self.average[-1]*100, self.ttest[0][-1], self.alpha[-1][0]*100, self.alpha_tvalue[-1][0]] + fac_re, decimals=3))
+                    table.add_column('Diff', np.around([self.average_result[-1]*100, self.ttest[0][-1], self.alpha[-1][0]*100, self.alpha_tvalue[-1][0]] + fac_re, decimals=3))
         np.set_printoptions(formatter={'float':'{:0.3f}'.format})
         print(table)
 
@@ -1037,9 +1037,11 @@ class Bivariate(ptf_analysis):
     '''
     This module is for Bivariate analysis
     '''
-    def __init__(self, sample):
+
+    def __init__(self, sample:DataFrame):
         '''
-        input: sample: the samples to be analyzed 
+        input:
+            param sample: the samples to be analyzed 
             sample usually contain the future return, characteristics, time 
             the DEFAULT settting:
             the First column is the forecast return and 
@@ -1052,7 +1054,6 @@ class Bivariate(ptf_analysis):
             factor: risk adjust factor
             maxlag: maximum lag for Newey-West adjustment
         '''
-        import numpy as np
 
         if type(sample).__name__ == 'DataFrame' :
             self.sample = np.array(sample)
@@ -1071,7 +1072,6 @@ class Bivariate(ptf_analysis):
         output :
         groups_by_time (list): The samples group by time.
         '''
-        import numpy as np
         
         time=np.sort(np.unique(self.sample[:, 3]))
         groups_by_time=list()
@@ -1080,7 +1080,7 @@ class Bivariate(ptf_analysis):
         
         return groups_by_time
         
-    def average_by_time(self, conditional=False):
+    def average_by_time(self, conditional:bool =False):
         '''
         average of the groups at each time point
         This function, using the sample group by time from function *divide_by_time*, 
@@ -1123,7 +1123,7 @@ class Bivariate(ptf_analysis):
         print(average_group_time)
         print(np.shape(average_group_time))
         '''
-        import numpy as np
+
         # get the sample groups by time 得到按时间分组的样本
         groups_time = self.divide_by_time()
         # generate table of  average return for group and time 生成组和时间的表格
@@ -1191,7 +1191,7 @@ class Bivariate(ptf_analysis):
 
         return average_group_time
             
-    def difference(self, average_group):
+    def difference(self, average_group: ndarray) -> ndarray:
         '''
         calculate the difference group return
         This functions calculates the difference of group return, which, in detail, is the last group average return minus the first group average return. 
@@ -1201,7 +1201,6 @@ class Bivariate(ptf_analysis):
         output :
         result (ndarray): The matrix added with the difference of average group return.
         '''
-        import numpy as np
         
         a, b, c= np.shape(average_group)
         diff_row = average_group[-1, :, :] - average_group[0, :, :]
@@ -1213,7 +1212,7 @@ class Bivariate(ptf_analysis):
         result = np.append(result, diff_col, axis=1)
         return result
     
-    def factor_adjustment(self, factor):
+    def factor_adjustment(self, factor:DataFrame):
         '''
         This function calculates the group return adjusted by risk factors.
 
@@ -1224,9 +1223,6 @@ class Bivariate(ptf_analysis):
         alpha (ndarray): The anomaly
         ttest (ndarray): The t-value of the anomaly.
         '''
-        import statsmodels.api as sm
-        import numpy as np
-        import pandas as pd
         
         self._factor = factor
         # result: r * c * n 
@@ -1281,13 +1277,10 @@ class Bivariate(ptf_analysis):
         self.average (array): The average of the portfolio return across time.
         self.ttest (array): The t-value of the portfolio return across time.
         '''
-        import numpy as np
-        from scipy import stats
-        from .adjust import newey_west_t
         
         self.result = self.difference(self.average_by_time(**kwargs))
         r, c, z = np.shape(self.result)
-        self.average = np.nanmean(self.result, axis=2)
+        self.average_result = np.nanmean(self.result, axis=2)
         
         if self.maxlag == 0 :
             self.ttest = stats.ttest_1samp(self.result, 0.0, axis=2, nan_policy='omit')
@@ -1320,9 +1313,9 @@ class Bivariate(ptf_analysis):
 #            self.alpha, self.alpha_tvalue = self.factor_adjustment(self.result)
 #            return self.average, self.ttest, self.alpha, self.alpha_tvalue
 
-        return self.average, self.ttest
+        return self.average_result, self.ttest
 
-    def fit(self, number=4, perc_row=None, perc_col=None, percn_row=None, percn_col=None, weight=False, maxlag=12, **kwargs):
+    def fit(self, number:int =4, perc_row: list=None, perc_col: list=None, percn_row: ndarray =None, percn_col: ndarray =None, weight: bool=False, maxlag: int=12, **kwargs) -> None:
         '''
         This function run the function **summary_and_test().**
         input :
@@ -1335,7 +1328,6 @@ class Bivariate(ptf_analysis):
         maxlag (int):  The maximum lag for Newey-West adjustment.
         kwargs : kwargs include settings like conditional, etc. 
         '''
-        import numpy as np
         # the number of groups
 
         self._factor = None
@@ -1362,7 +1354,7 @@ class Bivariate(ptf_analysis):
 
         self.summary_and_test(**kwargs)
     
-    def extractor(self, r_pos, c_pos):
+    def extractor(self, r_pos:int, c_pos:int) -> Series:
         '''
         This function extracts the return series.
         input :
@@ -1372,13 +1364,11 @@ class Bivariate(ptf_analysis):
         output :
         series_ex (Series): The extracted Series.
         '''
-        import numpy as np
-        import pandas as pd
         
         if type(r_pos).__name__ != 'int':        
-            raise IOError 
+            return IOError 
         elif type(c_pos).__name__ != 'int':
-            raise IOError
+            return IOError
             
         time = np.sort(np.unique(self.sample[:, 3]))
         series_ex = self.result[r_pos, c_pos, :]
@@ -1397,7 +1387,7 @@ class Bivariate(ptf_analysis):
         return series_ex
 
 
-    def print_summary_by_time(self, export=False) :
+    def print_summary_by_time(self, export: bool=False) :
         '''
         This function print the summary grouped by time.
         input : 
@@ -1406,8 +1396,6 @@ class Bivariate(ptf_analysis):
         output :
         df (DataFrame): The table exported in form of DataFrame.
         '''
-        import numpy as np
-        from prettytable import PrettyTable
         
         r, c, n = np.shape(self.result)
         table = PrettyTable()
@@ -1440,7 +1428,7 @@ class Bivariate(ptf_analysis):
             
             return df
         
-    def print_summary(self, explicit=False, export=False, percentage=False):
+    def print_summary(self, explicit:bool =False, export:bool =False, percentage:bool =False):
         '''
         print summary
         This function print the summary grouped by characteristic and averaged by time.
@@ -1473,8 +1461,7 @@ class Bivariate(ptf_analysis):
         exper.fit()
         exper.print_summary()
         '''
-        import numpy as np
-        from prettytable import PrettyTable
+
         # generate Table if no factor
         if self._factor is None :
             table=PrettyTable()
@@ -1495,9 +1482,9 @@ class Bivariate(ptf_analysis):
                     temp_tvalue = [' ']
                 for j in range(self.num_col+1):
                     if percentage == False:
-                        temp.append(np.around(self.average[i, j], decimals=3))
+                        temp.append(np.around(self.average_result[i, j], decimals=3))
                     elif percentage == True:
-                        temp.append(np.around(self.average[i, j]*100, decimals=3))
+                        temp.append(np.around(self.average_result[i, j]*100, decimals=3))
                     
                     temp_tvalue.append(np.around(self.ttest[0][i, j], decimals=3))
 
@@ -1535,9 +1522,9 @@ class Bivariate(ptf_analysis):
                     temp_r2 = ['R2']
                 for j in range(self.num_col+1):
                     if percentage == False:
-                        temp.append(np.around(self.average[i, j], decimals=3))
+                        temp.append(np.around(self.average_result[i, j], decimals=3))
                     elif percentage == True:
-                        temp.append(np.around(self.average[i, j]*100, decimals=3))
+                        temp.append(np.around(self.average_result[i, j]*100, decimals=3))
                     temp_tvalue.append(np.around(self.ttest[0][i, j], decimals=3))
                     if percentage == False:
                         temp_fac.append(np.around(self.alpha[i, j], decimals=3))
@@ -1591,7 +1578,7 @@ class Persistence():
     This class is for persistence analysis
     '''
 
-    def __init__(self, sample):
+    def __init__(self, sample: DataFrame):
         '''
         This function makes initialization.
         input : 
@@ -1600,13 +1587,12 @@ class Persistence():
                         The second column : timestamp
                         The higher order columns: the variables.
         '''
-        import numpy as np
 
         self.sample = sample
         self._columns = sample.columns 
         self._r, self._c = np.shape(self.sample)
     
-    def _shift(self, series, lag):
+    def _shift(self, series: Series, lag: int) -> Series:
         '''
         This private function shift the time series with lags.
         input :
@@ -1618,19 +1604,16 @@ class Persistence():
         lag_series.name = series.name + str(lag)
         return lag_series
     
-    def fit(self, lags):
+    def fit(self, lags: list):
         '''
         This function calculate the persistence with lags.
         input :
             lags (list): the lags that need to be analyzed.
         '''
-        import pandas as pd
         
         temp_sample = self.sample.set_index([self._columns[0], self._columns[1]]).sort_index()
 
         def autocorr(x):
-            import numpy as np
-        
             return np.corrcoef(x.iloc[:, 0], x.iloc[:, 1])[0, 1] 
         
         variable_autocorr = list()
@@ -1644,7 +1627,7 @@ class Persistence():
         self._lag = lags
         self._variable_autocorr = pd.concat(variable_autocorr, axis=1)
 
-    def summary(self, periodic=False, export=False):
+    def summary(self, periodic: bool=False, export: bool=False):
         '''
         Print the Result
         This function prints the result summary and exports table. The Fisher coefficient and the Spearman coefficient are both calculated. 
@@ -1682,8 +1665,6 @@ class Persistence():
         exper.summary(periodic=True)
         exper.summary()
         '''
-        import numpy as np
-        from prettytable import PrettyTable
 
         table = PrettyTable()
         
@@ -1709,7 +1690,6 @@ class Persistence():
         print(table)
 
         if export == True :
-            import pandas as pd
             try:
                 from StringIO import StringIO
             except ImportError:
@@ -1726,14 +1706,13 @@ class Tangency_portfolio():
     This class calculate the tangency portfolio
     The related content can be found in Financial Asset Pricing Theory by Munk(2010).
     '''
-    def __init__(self, rf, mu, cov_mat):
+    def __init__(self, rf: float, mu: array, cov_mat: ndarray) -> None:
         '''
         input : 
             rf (float): risk free rate
             mu (array or Series): stock rate of return
             cov_mat (matrix): covariance matrix of stock rate of return 
         '''
-        import numpy as np
 
         self.rf = rf
         if type(mu).__name__ == 'Series':
@@ -1745,28 +1724,25 @@ class Tangency_portfolio():
         self.mu = np.reshape(self.mu, (len(self.mu), 1))
         self.cov_mat = np.mat(cov_mat)
 
-    def _portfolio_weight(self):
+    def _portfolio_weight(self) -> ndarray:
         '''
         calculate the portfolio weight in tangency portfolio
         output : 
             weight (vector): the portfolio weight in tangency portfolio
         '''
-        import numpy as np
-        from numpy.linalg import inv
         
         excess_ret = np.mat((self.mu - self.rf))
         self.weight = inv(self.cov_mat).dot(excess_ret)/np.sum(inv(self.cov_mat).dot(excess_ret))
 
         return self.weight
     
-    def _sharpe_ratio(self):
+    def _sharpe_ratio(self) -> float:
         '''
         calculate the Sharpe ratio of the tangency portfolio
         output :
             sr (float): the Sharpe ratio of the tangency portoflio
         '''
-        import numpy as np
-        
+
         sigma = (self.weight.T.dot(self.cov_mat).dot(self.weight))[0,0]
         sr = (self.weight.T.dot(self.mu)-self.rf)/sigma**0.5
 
@@ -1809,8 +1785,6 @@ class Tangency_portfolio():
         print(portfolio.fit())
         portfolio.print()
         '''
-        from prettytable import PrettyTable 
-        import numpy as np
 
         table = PrettyTable()
         if self.asset_name != None:
@@ -1827,13 +1801,12 @@ class Spanning_test():
     This module is designed for spanning test. Three asymptotic estimates and one small sample estimates are contained. The construction is based on 
         R. Kan, G. Zhou, Test of Mean-Variance Spanning, Annals of Economics and Finance, 2012, 13-1, 145-193.    
     '''
-    def __init__(self, Rn, Rk):
+    def __init__(self, Rn:ndarray, Rk: ndarray) -> None:
         '''
         input:
             Rn (ndarray): T*N test assets. T: time length, N: asset numbers
             Rk (ndarray): T*K baseline assets. T: time length, K: assets numbers
         '''
-        import numpy as np
 
         if type(Rn).__name__ == 'DataFrame':
             self.Rn = np.array(Rn)
@@ -1868,11 +1841,10 @@ class Spanning_test():
                 self.rk = len(Rk)
                 self.ck = 1
      
-    def _cov(self):
+    def _cov(self) -> None:
         '''
         This function calculates the covariance
         '''
-        import numpy as np
 
         self.V_11 = np.correlate(self.Rn)
         self.V_12 = np.correlate(self.Rn, self.Rk)
@@ -1887,9 +1859,6 @@ class Spanning_test():
             eigen2 (float) : the eigen value #2
             U (float) : the U statistics
         '''
-        import numpy as np
-        import statsmodels.api as sm
-        from numpy.linalg import inv, det, eig
         
         vecn_one = np.ones((self.cn, 1))
         veck_one = np.ones((self.ck, 1))
@@ -1955,8 +1924,6 @@ class Spanning_test():
         [LM, chi_LM] (float) : The LM estimate and p-value of test.
         [LR_F, f_LR] (float) : The F estimate and p-value of test.
         '''
-        import numpy as np
-        from scipy import stats
         
         eigen1, eigen2, U = self._regress()
         LR = self.rn * np.log((1 + eigen1) * (1 + eigen2))
@@ -2041,8 +2008,6 @@ class Spanning_test():
         '''
         print the result
         '''
-        from prettytable import PrettyTable
-        import numpy as np
 
         table = PrettyTable()
         table.field_names = ['asset', 'alpha', 'p-value', 'delta', 'F-test', 'p-value-F', 'LR', 'p-value-LR', 'W', 'p-value-W', 'LM', 'p-value-LM', 'T', 'N', 'K']
@@ -2053,3 +2018,35 @@ class Spanning_test():
         table.float_format = '.5'
         print(table)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        
+
+        
+        
+        
+        
+
+
+        
+        

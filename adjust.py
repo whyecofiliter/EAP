@@ -5,7 +5,14 @@ Adjustment Method 调整方法
 OLS regrssion
 '''
 
-def ols(y, x, constant=True) :
+from numpy import ndarray
+
+from statsmodels.api import OLS, add_constant
+import numpy as np
+from numpy.linalg import inv
+from scipy.stats import t
+
+def ols(y: ndarray, x:ndarray, constant: bool=True) :
     '''
     The function is for OLS regression, which is equal to the OLS module in package *statsmodels*. 
     input :
@@ -16,7 +23,6 @@ def ols(y, x, constant=True) :
     output :
         result (OLSRegressResult): The result of the regression.
     '''
-    from statsmodels.api import OLS, add_constant
     
     if constant == True :
         result = OLS(y,add_constant(x)).fit()
@@ -28,7 +34,7 @@ def ols(y, x, constant=True) :
 '''
 White Estimate of Variance 
 '''
-def white(y, X, **kwargs) :
+def white(y: ndarray, X:ndarray, **kwargs) ->ndarray:
     '''
     White Estimate of Variance
     X(r,c): r is smaple number, c is variable number
@@ -61,9 +67,6 @@ def white(y, X, **kwargs) :
     r, c = np.shape(X)
     print('\n', 1/r*X.T.dot(X).dot(re).dot(X.T.dot(X)))
     '''
-    import numpy as np
-    from numpy.linalg import inv
-    from statsmodels.api import add_constant
 
     r, c = np.shape(X)
     result = ols(y, X, **kwargs)
@@ -80,7 +83,7 @@ def white(y, X, **kwargs) :
 '''
 Newey_West Estimate of Variance
 '''
-def newey_west(y, X, J=None, **kwargs) :
+def newey_west(y:ndarray, X:ndarray, J: int=None, **kwargs) -> ndarray:
     '''
     Newey West Estimate of Variance
     X(r,c): r is smaple number, c is variable number
@@ -117,9 +120,6 @@ def newey_west(y, X, J=None, **kwargs) :
     print('\n', cov_hac(result))
     print('\n', 1/r*X.T.dot(X).dot(cov_hac(result)).dot(X.T.dot(X)))
     '''
-    import numpy as np
-    from numpy.linalg import inv
-    from statsmodels.api import add_constant
 
     r, c = np.shape(X)
     result = ols(y, X, **kwargs)
@@ -155,7 +155,7 @@ def newey_west(y, X, J=None, **kwargs) :
 '''
 T test after adjustment of White
 '''
-def white_t(y, X, params=None, side='Two', **kwargs) :
+def white_t(y:ndarray, X:ndarray, params: ndarray=None, side: str='Two', **kwargs) :
     '''
     White t test based on White Variance
     This function constructs t-test based on White variance estimate.
@@ -182,8 +182,6 @@ def white_t(y, X, params=None, side='Two', **kwargs) :
     print('t_value : ', re[0], '\np_value : ', re[1])
     print('b :', b.T)
     '''
-    import numpy as np
-    from scipy.stats import t
 
     diagonal = np.diagonal(white(y, X, **kwargs))
     standard_error = diagonal**0.5
@@ -207,7 +205,7 @@ def white_t(y, X, params=None, side='Two', **kwargs) :
 '''
 T test after adjustment of Newey West
 '''
-def newey_west_t(y, X, params=None, side='Two', **kwargs) :
+def newey_west_t(y:ndarray, X:ndarray, params: ndarray=None, side: str='Two', **kwargs) :
     '''
     Newey_West t test based on Newey West Variancce 
     This function constructs t-test based on Newey-West variance estimate.
@@ -233,12 +231,10 @@ def newey_west_t(y, X, params=None, side='Two', **kwargs) :
     print('t_value : ', re[0], '\np_value : ', re[1])
     print('b :', b.T)
     '''
-    import numpy as np
-    from scipy.stats import t
 
     diagnal = np.diagonal(newey_west(y, X, **kwargs))
     standard_error = diagnal**0.5
-    if params:
+    if params is not None:
         t_value = params / standard_error
     else:
         constant = kwargs['constant']

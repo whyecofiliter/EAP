@@ -2544,6 +2544,42 @@ model.summary()
 
 
 
+##### def plot(self, figsize=(14, 7), together=False, window=None, select=None, **kwargs):
+
+This function plots the regression slopes of the FM regression.
+
+**input :**
+
+*figsize (tuple) :* Figsize.
+
+*together (boolean) :* Whether print the slope in one figure.
+
+*window (int) :* The window of moving average slopes.
+
+*select (list) :* Only print the selected slopes.
+
+**Example**
+
+```python
+from fama_macbeth import Fama_macbeth_regress as fmr
+
+model = fmr(sample)
+model.fit()
+model.plot(together=True, window=10)
+```
+
+![](C:\Users\Wang_\Desktop\1.jpg)
+
+![2](C:\Users\Wang_\Desktop\2.jpg)
+
+![3](C:\Users\Wang_\Desktop\3.jpg)
+
+![](C:\Users\Wang_\Desktop\4.jpg)
+
+
+
+
+
 #### class Factor_mimicking_portfolio
 
 This module is designed for generating factor mimicking portfolio following the Fama-French (1993) conventions, and then calculating factor risk premium.
@@ -3666,6 +3702,53 @@ t_value :  [135.08 -17.19 13.80 34.95 14.61 21.31 48.56 -44.62 2.75 -28.71 51.63
 p_value :  [0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00]
 b : [[-0.14 0.10 0.25 0.11 0.16 0.40 -0.36 0.03 -0.21 0.40]]
 ```
+
+
+
+### util
+
+#### def plot(portfolio, pattern='scatter', alpha=False, percentage=True, figsize=(14, 7), pos=0.0, **kwargs):
+
+**input :**
+
+*portfolio (ptf_analysis):* The fitted portfolio.
+
+*pattern (str):* The plot patterns, including 'scatter', 'line', and 'bar' for univariate analysis, and including '3d' and 'scatter' for bivariate analysis.
+
+*alpha (boolean):* Whether plot the factor adjusted alpha. The **DEFAULT** is False.
+
+*percentage (boolean):* Whether plot the return and alpha in percentage. The **DEFAULT** is True.
+
+*figsize (tuple):* Set the figure size. The **DEFAULT** is (14, 7).
+
+*pos (str):* Adjust the position of the axes in 3d figure of bivariate analysis.
+
+*kwargs:* The keywords of plot in seaborn and matplotlib.
+
+
+
+**Example**
+
+```python
+from EAP.util import plot
+from EAP.portfolio_analysis import univariate, bivariate
+
+uni = univariate(sample).fit()
+plot(uni)
+
+bi = bivariate(sample).fit()
+plot(bi)
+```
+
+Univariate
+
+![image-20221020135709799](C:\Users\Wang_\AppData\Roaming\Typora\typora-user-images\image-20221020135709799.png) 
+
+Bivariate: 3d
+
+![image-20221020135823126](C:\Users\Wang_\AppData\Roaming\Typora\typora-user-images\image-20221020135823126.png)
+
+
 
 
 

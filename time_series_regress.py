@@ -3,20 +3,33 @@ Time Series Analysis 时间序列分析
 
 '''
 
+from pandas import DataFrame
+from numpy import ndarray
+import numpy as np
+from statsmodels.api import OLS
+from statsmodels.api import add_constant
+import prettytable as pt
+from numpy.linalg import inv
+from scipy.stats import f
+
+
+from .adjust import newey_west_t
+
+
+
 class TS_regress() :
     '''
     This class is designed for time series regression, 
         r_{i,t} = \beta_if_t + \epsilon_{i,t}
     to obtain the beta for each asset.
     '''
-    def __init__(self, list_y, factor) :
+    def __init__(self, list_y:DataFrame, factor:DataFrame) :
         '''
         This function initializes the object.
         input :
             list_y (list/DataFrame): The return matrix with i rows and t columns.
             factor (ndarray or DataFrame): The factor risk premium return series.
         '''
-        import numpy as np
 
         if type(list_y).__name__ == 'DataFrame':
             self._name_y = list(list_y.columns)
@@ -36,7 +49,7 @@ class TS_regress() :
         else:
             raise IOError
 
-    def ts_regress(self, newey_west=True, **kwargs) :
+    def ts_regress(self, newey_west: bool=True, **kwargs) :
         '''
         This function is for conducting the time series regression.
         input :
@@ -61,10 +74,6 @@ class TS_regress() :
 
         re = TS_regress(y_list, X)
         '''
-        import numpy as np
-        from statsmodels.api import OLS
-        from statsmodels.api import add_constant
-        from .adjust import newey_west_t
 
         length = len(self.list_y)
         try :            
@@ -110,8 +119,6 @@ class TS_regress() :
         Summary 总结
         This function summarize the result, including the GRS test.
         '''
-        import prettytable as pt
-        import numpy as np
 
         r, c = np.shape(self.factor)
         length = len(self.list_y)
@@ -145,9 +152,6 @@ class TS_regress() :
             grs_stats (list):* The GRS statistics.
             p_value (list):* The p_value.
         '''
-        import numpy as np
-        from numpy.linalg import inv
-        from scipy.stats import f
 
         length = len(self.list_y)
         r, c = np.shape(self.factor)

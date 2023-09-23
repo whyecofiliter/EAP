@@ -8,14 +8,25 @@ For more academic reference:
 Empirical Asset Pricing: The Cross Section of Stock Returns. Bali, Engle, Murray. 2016.
 '''
 
+from numpy import ndarray
+
+import numpy as np
+import statsmodels.api as sm
+import scipy.stats as sts
+from prettytable import PrettyTable
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from .portfolio_analysis import Bivariate
 from .adjust import newey_west_t
+
 
 class Fama_macbeth_regress():
     '''
     fama_macbeth_regress follwing two steps
     Need Package: numpy,statsmodels,scipy,prettytable
     '''
-    def __init__(self, sample):
+    def __init__(self, sample:ndarray) -> None:
         '''
         input: 
             sample (ndarray/DataFrame): data used for analysis 用于回归数据
@@ -24,7 +35,6 @@ class Fama_macbeth_regress():
                 the second to the last-1 columns is independent variable/ factor loadings
                 the last coolumn is time label
         '''
-        import numpy as np
 
         if type(sample).__name__ == 'DataFrame':
             self.sample = np.array(sample)
@@ -35,7 +45,7 @@ class Fama_macbeth_regress():
             self._input_type = 'ndarray'
         # self.time_series_average()
     
-    def divide_by_time(self, sample):
+    def divide_by_time(self, sample:ndarray):
         '''
         This function group the sample by time.
         input :
@@ -44,7 +54,6 @@ class Fama_macbeth_regress():
         output :
             groups_by_time (list): The sample grouped by time.
         '''
-        import numpy as np
         
         # extracting the sample time label 提取样板时间戳
         time = np.sort(np.unique(sample[:,-1]))
@@ -56,7 +65,7 @@ class Fama_macbeth_regress():
         # return grouped sample 返回被分类的样本组
         return groups_by_time
             
-    def cross_sectional_regress(self, add_constant=True, normalization=True, **kwargs):
+    def cross_sectional_regress(self, add_constant: bool=True, normalization: bool=True, **kwargs):
         '''
         The #1 step of Fama-Macbeth Regression Fama-Macbeth 回归第一步
         take the cross_sectional regress for each period 在每个时间段分别进行截面数据回归
@@ -69,9 +78,6 @@ class Fama_macbeth_regress():
             adjrsq (list):  The adjust r-square.
             n (list): The sample quantity in each group.
         '''
-
-        import statsmodels.api as sm
-        import numpy as np
         
         # get sample shape 获取样本行列数
         r,c = np.shape(self.sample)
@@ -128,13 +134,11 @@ class Fama_macbeth_regress():
         
         return params, tvalue, rsquare, adjrsq, n
     
-    def time_series_average(self, maxlag=12, **kwargs) :
+    def time_series_average(self, maxlag: int=12, **kwargs) :
         '''
         The #2 step of Fama-French regression Fama-French 回归第二步 
         Time series average for cross section regression  对截面数据在时间上取均值
         '''
-        import scipy.stats as sts
-        import numpy as np
         
         # the params of cross-section regression 截面回归相关参数 
         self.result_cross = self.cross_sectional_regress(**kwargs)
@@ -160,6 +164,8 @@ class Fama_macbeth_regress():
         self.adjrsq_average = np.mean(self.result_cross[3])
         # the average sample numbers in each group 各组样本均值
         self.n_average = np.mean(self.result_cross[4])
+        # 设置时间
+        self._time = np.sort(np.unique(self.sample[:,-1]))
         # print the result 打印结果
         print('para_average:', self.coefficient_average)
         print('tvalue:', self.tvalue)
@@ -200,8 +206,6 @@ class Fama_macbeth_regress():
         summary the cross-section result of each time 总结每一时刻的结果
         package needed : prettytable
         '''
-        from prettytable import PrettyTable
-        import numpy as np
         
         r,c = np.shape(self.sample)
         time = np.sort(np.unique(self.sample[:, -1]))
@@ -218,14 +222,12 @@ class Fama_macbeth_regress():
         np.set_printoptions(formatter={'float':'{:0.3f}'.format})
         print(table)
         
-    def summary(self,charactername=None) :
+    def summary(self,charactername:list =None) :
         '''
         summary the time-series average 总结时间序列平均
         input :
             charactername : The factors' name in the cross-section regression model.
         '''
-        from prettytable import PrettyTable        
-        import numpy as np
         
         r,c = np.shape(self.sample)
         table = PrettyTable()
@@ -249,14 +251,66 @@ class Fama_macbeth_regress():
             table.add_row([self.coefficient_average, self.tvalue, np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
                            self.n_average])
         elif self.constant == False and self._input_type == 'DataFrame' :
-            table.field_names = self._columns[1:-1] + ['Average R','Average adj R','Average n']
-            table.add_row(np.around(list(self.coefficient_average), decimals=4) + [np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
-                           np.around(self.n_average, decimals=2)])
-            table.add_row(list(np.around(self.tvalue, decimals=3)) + ['-', '-', '-'])
+            table.field_names = ['Intercept'] + self._columns[1:-1] + ['Average R','Average adj R','Average n']
+            table.add_row(['-'] + list(np.around(self.coefficient_average, decimals=4)) + list([np.around(self.rsquare_average, decimals=3), np.around(self.adjrsq_average, decimals=3),\
+                           np.around(self.n_average, decimals=2)]))
+            table.add_row(['-'] + list(np.around(self.tvalue, decimals=3)) + ['-', '-', '-'])
 
         
         print('\n')
         print(table)
+
+    def plot(self, figsize: tuple =(14,7), together:bool =False, window: int = None, select:list =None, **kwargs):
+        '''
+        plot the risk premium
+        '''
+        if self._columns[1:-1]:
+            fac = self._columns[1:-1]
+        else: 
+            if self.constant == False:
+                fac = ['factor' + str(i) for i in range(len(self.coefficient_average))]
+            elif self.constant == True:
+                fac = ['factor' + str(i) for i in range(len(self.coefficient_average)-1)]
+            else: raise IOError
+
+        if self.constant == False:
+            temp_data = pd.DataFrame(self.result_cross[0], columns=fac, index=self._time)
+        elif self.constant == True:
+            temp_data = pd.DataFrame(self.result_cross[0][:, 1:], columns=fac, index=self._time)
+        
+        select_list = list()
+        if select is not None:
+            for i in range(len(select)):
+                if type(select[i]).__name__ == 'str':
+                    select_list.append(select[i])
+                else:
+                    select_list.append('factor' + str(select[i]))
+            
+            temp_data = temp_data[select_list]
+            fac = temp_data.columns
+
+        fig, ax = plt.subplots(len(fac), 1, figsize=figsize, dpi=500)
+        for i in range(len(fac)):
+            temp_data.iloc[:, i].plot(ax=ax[i], **kwargs)
+            ax[i].set_ylabel(fac[i])
+
+        if together == True:
+            fig_t, ax_t = plt.subplots(1, 1, figsize=figsize, dpi=500)
+            temp_data.plot(ax=ax_t, label=True, **kwargs)
+
+        if window is not None:
+            fig_w, ax_w = plt.subplots(len(fac), 1,figsize=figsize, dpi=500)
+            for i in range(len(fac)):
+                temp_data_w = temp_data.iloc[:, i].rolling(window=window).mean()
+                temp_data_w.plot(ax=ax_w[i], ylabel=fac[i], **kwargs)
+            
+            if together == True:
+                fig_wt, ax_wt = plt.subplots(1, 1, figsize=figsize, dpi=500)
+                temp_data_w = temp_data.rolling(window=window).mean()
+                temp_data_w.plot(ax=ax_wt, label=True, **kwargs)
+
+        plt.show()
+
         
 class Factor_mimicking_portfolio():
     '''
@@ -268,7 +322,7 @@ class Factor_mimicking_portfolio():
        Factor=1/2(S/H+B/H)-1/2(S/L+B/L)
     3. In Fama-French (1993), the factor is book-to-market ratio, and other literatures follow the same way to construct factor mimicking portfolio. The return of each portfolio is represented by the market value weighted portfolio return.  
     '''
-    def __init__(self, sample, perc_row=[0, 50, 100], perc_col=[0, 30, 70, 100], percn_row=None, percn_col=None, weight=True):
+    def __init__(self, sample:ndarray, perc_row: list=[0, 50, 100], perc_col: list=[0, 30, 70, 100], percn_row:ndarray =None, percn_col:ndarray =None, weight:bool =True):
         '''
         This function initializes the object.
 
@@ -285,7 +339,6 @@ class Factor_mimicking_portfolio():
             percn_col (list/array): The percentile that divide stocks by the second factor. 
             weight (array or Series): Whether the portfolio return calculated by weight. The **Default** is True.
         '''
-        import numpy as np
         
         self.sample = sample
         self.perc_row = perc_row
@@ -329,7 +382,6 @@ class Factor_mimicking_portfolio():
         print('portfolio_return_time:', portfolio_return_time)
         print('portfolio_return_time:', np.shape(portfolio_return_time))
         '''
-        from .portfolio_analysis import Bivariate
         
         bi = Bivariate(self.sample)
         if all([self.percn_row is None, self.percn_col is None]):
@@ -349,8 +401,6 @@ class Factor_mimicking_portfolio():
             return_col : The second factor risk premium. 
         
         '''
-        import numpy as np
-        import pandas as pd
         
         diff = self.portfolio_return_time()
         r, c, n = np.shape(diff)
@@ -362,7 +412,7 @@ class Factor_mimicking_portfolio():
         
         return return_row, return_col
     
-    def portfolio_return_horizon(self, period, ret=False):
+    def portfolio_return_horizon(self, period: int, ret: bool=False):
         '''
         Construct horizon pricing factor
         This function is to construct horizon pricing factor. For details, read Horizon Pricing, JFQA, 2016, 51(6): 1769-1793.
@@ -382,8 +432,6 @@ class Factor_mimicking_portfolio():
         print('portfolio_return_col: \n', portfolio_return[1])
         print('portfolio_return_col:', np.shape(portfolio_return[1]))
         '''
-        import numpy as np
-        import pandas as pd
 
         diff = self.portfolio_return_time()
         r, c, n =np.shape(diff)
