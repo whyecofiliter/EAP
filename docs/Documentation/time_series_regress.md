@@ -1,7 +1,3 @@
----
-sort: 6
----
-
 ###  time_series_regress
 
 #### class TS_regress()

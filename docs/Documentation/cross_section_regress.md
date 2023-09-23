@@ -1,7 +1,3 @@
----
-sort: 2
----
-
 ### cross_section_regress
 
 #### class CS_regress()

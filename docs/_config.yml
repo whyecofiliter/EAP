@@ -1,12 +1,14 @@
 title: EAP
 lang: en
-description: Empirical Asset Pricing
+description: a catchy description for your project
 markdown: kramdown
 
 remote_theme: rundocs/jekyll-rtd-theme
 
 readme_index:
-  with_frontmatter: true
+  enable: true
+  remove_originals: false
+  with_frontmatter: false
 
 exclude:
   - Makefile

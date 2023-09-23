@@ -1,6 +1,3 @@
----
-sort: 1
----
 # Quick Start
 
 ## Portfolio Analysis
@@ -30,9 +27,9 @@ from EAP.portfolio_analysis import Univariate as uni
 # instantiate the model
 model = uni(sample)
 # fit the model
-model.fit(number=9)
+result = model.fit(sample, number=9)
 # print the summary
-model.summary()
+result.summary()
 ```
 
 
@@ -57,9 +54,9 @@ from EAP.portfolio_analysis import Bivariate as bi
 # instantiate the model
 model = bi(sample)
 # fit the model
-model.fit(number=4)
+result = bi.fit(sample, number=4)
 # print the summary
-model.summary()
+result.summary()
 ```
 
 
@@ -107,8 +104,8 @@ The Vanilla sample for  Fama-Macbeth regression requires has the structure,
 from EAP.fama_macbeth import Fama_macbeth_regress as fmr
 
 model = fmr(data)
-model.fit(add_constant=True)
-model.summary()
+result = model.fit(add_constant=True)
+result.summary()
 ```
 
 
@@ -140,8 +137,8 @@ If you want to compare the explanation power of the competitive models, you shou
 from time_series_regress import TS_regress
 
 model = TS_regress(data, factor)
-model.fit()
-model.summary()
+result = model.fit()
+reuslt.summary()
 ```
 
 
@@ -158,8 +155,8 @@ If you want to compare the explanation power of the competitive models, you shou
 from cross_section_regress import CS_regress
 
 model = CS_regress(data, factor)
-model.fit()
-model.summary()
+result = model.fit()
+result.summary()
 ```
 
 

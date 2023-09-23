@@ -1,7 +1,3 @@
----
-sort: 1
----
-
 ## portfolio_analysis
 
 ### Market System Risk (Beta)

@@ -1,7 +1,3 @@
----
-sort: 3
----
-
 ### fama_macbeth
 
 This module is designed for Fama_Macbeth regression(1976). 

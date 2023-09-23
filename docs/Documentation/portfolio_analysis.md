@@ -1,7 +1,3 @@
----
-sort: 4
----
-
 ### portfolio_analysis
 
 This module is used for portfolio analysis by 4 steps:
@@ -223,7 +219,13 @@ The initialization function
 
 **input :**
 
-*sample (ndarray or DataFrame) :*  The samples to be analyzed. Samples usually contain the future return, characteristics, time. The **DEFAULT** setting is the *1th* column is the forecast return, the *2nd* column is the characteristic, the *3rd* column or the index(if data type is Dataframe) is time label.
+*sample (ndarray or DataFrame) :*  The samples to be analyzed. Samples usually contain the future return, characteristics, time. The **DEFAULT** setting is 
+
+the *1th* column is the forecast return, 
+
+the *2nd* column is the characteristic, 
+
+the *3rd* column or the index(if data type is Dataframe) is time label.
 
 
 
